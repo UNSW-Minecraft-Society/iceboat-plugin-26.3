@@ -81,6 +81,8 @@ sealed class LevelDataType<T : LevelTiedData>(val id: String, codec: MapCodec<T>
     val codec: MapCodec<T> = codec ?: MapCodec.unit(default)
     
     // put another enum value for each tracked data type
+    object MapData : LevelDataType<MapDataTracker>("nodes", null, MapDataTracker())
 }
 
+val ServerLevel.mapData: MapDataExposer get() = this.levelTiedData.getDataOfType(LevelDataType.MapData)
 // put other level-tied data getters here

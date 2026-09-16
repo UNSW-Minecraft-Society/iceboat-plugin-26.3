@@ -2,12 +2,13 @@ package mcsoc.iceboat
 
 import net.fabricmc.api.ModInitializer
 import net.minecraft.resources.Identifier
+import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+
 
 object IceboatPlugin : ModInitializer {
 	const val MOD_ID: String = "iceboat-plugin"
-
-	private val LOGGER = LoggerFactory.getLogger(MOD_ID)
+	val LOGGER: Logger = LoggerFactory.getLogger(MOD_ID)
 
 	override fun onInitialize() {
 		// This code runs as soon as Minecraft is in a mod-load-ready state.
@@ -17,6 +18,5 @@ object IceboatPlugin : ModInitializer {
 		LOGGER.info("Hello Icy world!")
 	}
 
-	fun id(path: String): Identifier
-		= Identifier.fromNamespaceAndPath(MOD_ID, path)
+	fun id(path: String) = Identifier.fromNamespaceAndPath(MOD_ID, path)
 }
