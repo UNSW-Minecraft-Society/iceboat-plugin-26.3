@@ -18,7 +18,7 @@ import net.minecraft.world.level.saveddata.SavedDataType
 abstract class LevelTiedData {
     companion object {                
         internal val CODEC: Codec<LevelTiedData> = LevelDataType.CODEC.dispatch(
-            { inst -> inst.type },
+            { inst -> inst.getType() },
             { type -> type.codec }
         )
     }
@@ -27,7 +27,7 @@ abstract class LevelTiedData {
         this.isDirty = true
     }
     
-    abstract val type: LevelDataType<*>
+    abstract fun getType(): LevelDataType<*>
 }
 
 private class LevelTiedDataTracker() : SavedData() {

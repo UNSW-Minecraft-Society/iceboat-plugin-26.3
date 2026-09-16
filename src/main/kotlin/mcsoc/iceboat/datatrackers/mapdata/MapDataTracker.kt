@@ -10,7 +10,7 @@ import java.util.UUID
 
 
 class MapDataTracker() : LevelTiedData(), MapDataHolder {
-    override val type get() = LevelDataType.MapData
+    override fun getType() = LevelDataType.MapData
     companion object {
         val CODEC: MapCodec<MapDataTracker> = RecordCodecBuilder.mapCodec{it.group(
             Codec.unboundedMap(
