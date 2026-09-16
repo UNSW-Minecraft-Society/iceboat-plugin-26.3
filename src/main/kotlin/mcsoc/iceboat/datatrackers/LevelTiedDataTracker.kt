@@ -7,6 +7,8 @@ import com.mojang.serialization.codecs.RecordCodecBuilder
 import mcsoc.iceboat.IceboatPlugin
 import mcsoc.iceboat.datatrackers.mapdata.MapDataExposer
 import mcsoc.iceboat.datatrackers.mapdata.MapDataTracker
+import mcsoc.iceboat.datatrackers.playerdata.PlayerDataExposer
+import mcsoc.iceboat.datatrackers.playerdata.PlayerDataTracker
 import net.minecraft.resources.Identifier
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.util.datafix.DataFixTypes
@@ -82,7 +84,9 @@ sealed class LevelDataType<T : LevelTiedData>(val id: String, codec: MapCodec<T>
     
     // put another enum value for each tracked data type
     object MapData : LevelDataType<MapDataTracker>("nodes", null, MapDataTracker())
+    object PlayerData : LevelDataType<PlayerDataTracker>("players", null, PlayerDataTracker())
 }
 
-val ServerLevel.mapData: MapDataExposer get() = this.levelTiedData.getDataOfType(LevelDataType.MapData)
 // put other level-tied data getters here
+val ServerLevel.mapData: MapDataExposer get() = this.levelTiedData.getDataOfType(LevelDataType.MapData)
+val ServerLevel.playerData: PlayerDataExposer get() = this.levelTiedData.getDataOfType(LevelDataType.PlayerData)
