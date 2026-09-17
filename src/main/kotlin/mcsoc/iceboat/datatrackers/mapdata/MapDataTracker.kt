@@ -5,8 +5,11 @@ import com.mojang.serialization.MapCodec
 import com.mojang.serialization.codecs.RecordCodecBuilder
 import mcsoc.iceboat.datatrackers.LevelDataType
 import mcsoc.iceboat.datatrackers.LevelTiedData
+import mcsoc.iceboat.datatrackers.playerData
 import net.minecraft.core.UUIDUtil
+import net.minecraft.server.level.ServerLevel
 import java.util.UUID
+import kotlin.time.Duration
 
 
 class MapDataTracker() : LevelTiedData(), MapDataHolder {
@@ -26,4 +29,8 @@ class MapDataTracker() : LevelTiedData(), MapDataHolder {
     }
     
     override val node_map: MutableMap<UUID, NodeData> = mutableMapOf()
+
+    override fun getPlayerTime(level: ServerLevel, player: UUID?, node: UUID): Duration? {
+        return level.playerData.player_data[player]?.bestNodeTimes[node]
+    }
 }
