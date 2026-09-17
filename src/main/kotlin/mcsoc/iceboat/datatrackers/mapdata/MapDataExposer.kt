@@ -38,6 +38,6 @@ interface MapDataExposer {
     }
 }
 
-interface MapDataHolder : MapDataExposer {
+internal interface MapDataHolder : MapDataExposer {
     override val node_map: MutableMap<UUID, NodeData>
 }

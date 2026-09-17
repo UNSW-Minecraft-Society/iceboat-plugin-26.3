@@ -22,7 +22,7 @@ interface PlayerDataExposer {
     fun getPlayerData(player: UUID): PlayerData
 }
 
-interface PlayerDataHolder : PlayerDataExposer {
+internal interface PlayerDataHolder : PlayerDataExposer {
     override val player_data: MutableMap<UUID, PlayerData>
     override fun getPlayerData(player: UUID): PlayerData = player_data.getOrPut(player){PlayerData()}
 }
