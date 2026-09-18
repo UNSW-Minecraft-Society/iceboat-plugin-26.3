@@ -38,14 +38,17 @@ data class NodeData(
 
 interface MapDataExposer {
     // used to roughly mark the layout of the map
-    val node_map: Map<UUID, NodeData>
-    val nodes: Iterable<NodeData> get() = node_map.values
-    fun NodeData.next(): NodeData = node_map[this.next] ?: throw StringIndexOutOfBoundsException()
-    
+    fun getNode(node: UUID): NodeData?
+    fun getFirstMapNode(id: String, pos: Vec3 = Vec3.ZERO): NodeData?
     fun trackPlayerTime(node: UUID, level: ServerLevel, player: UUID)
     fun insertNodeAfter(node: UUID?, new: NodeData): UUID
-    fun printNodes() {
-        var node = nodes.firstOrNull() ?: return IceboatPlugin.LOGGER.info("node: {}", null)
+    fun initMap(id: String, first_pos: Vec3): NodeData
+
+    fun NodeData.next(): NodeData = this.next?.let{ getNode(it) } ?: throw StringIndexOutOfBoundsException()
+    
+    
+    fun printNodes(map: String) {
+        var node = getFirstMapNode(map) ?: return IceboatPlugin.LOGGER.info("node: {}", null)
         while (node.index != 0u) {
             node = node.next()
         }
@@ -57,11 +60,19 @@ interface MapDataExposer {
 }
 
 internal interface MapDataHolder : MapDataExposer {
-    override val node_map: MutableMap<UUID, NodeData>
+    val node_map: MutableMap<UUID, NodeData>
+    val map_heads: MutableMap<String, UUID>
+    
+    override fun getFirstMapNode(id: String, pos: Vec3): NodeData? {
+        return node_map[map_heads[id]]
+    }
+    override fun getNode(node: UUID): NodeData? = node_map[node]
+    
+    override fun initMap(id: String, first_pos: Vec3) = NodeData(first_pos, 0u).also{ addNode(it, 0u) }
     
     private fun NodeData.propogateIndex() {
         val this_index = this.index ?: return
-        val next = this.next() ?: return 
+        val next = this.next() 
         val next_index = next.index ?: return 
         if (next_index > this_index) {
             next.index = this_index + 1u
@@ -86,8 +97,8 @@ internal interface MapDataHolder : MapDataExposer {
         getPlayerTime(level, this.fastestPlayer, node)
         
     override fun trackPlayerTime(node: UUID, level: ServerLevel, player: UUID) {
-        node_map[node]?.let{
-            val playerTime = getPlayerTime(level, player, node) ?: Duration.INFINITE
+        getNode(node)?.let{
+            val playerTime = getPlayerTime(level, player, node) ?: return
             val currFastestTime = it.getPlayerTime(level, node) ?: Duration.INFINITE
             
             if (currFastestTime > playerTime) it.fastestPlayer = player
