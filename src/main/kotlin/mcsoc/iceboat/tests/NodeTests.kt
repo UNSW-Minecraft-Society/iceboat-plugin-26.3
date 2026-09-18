@@ -1,20 +1,52 @@
 package mcsoc.iceboat.tests
 
+import mcsoc.iceboat.IceboatPlugin
 import mcsoc.iceboat.datatrackers.mapData
 import mcsoc.iceboat.datatrackers.mapdata.NodeData
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents
+import net.minecraft.server.MinecraftServer
+import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.phys.Vec3
 
-fun registerNodeInsertionTest() {
+
+fun registerNodeTests() {
     ServerLifecycleEvents.SERVER_STARTED.register{
-        val level = it.overworld()
-        val mapData = level.mapData
+        val level = it.overworld().also(::setupNodeTestData)
         
-        mapData.initMap("map1", Vec3(0.0, 0.0, 0.0))
-        val x = mapData.appendNode("map1", NodeData(Vec3(1.0, 0.0, 0.0)))
-        mapData.appendNode("map1", NodeData(Vec3(3.0, 2.0, 1.0)))
-        mapData.insertNodeAfter(NodeData(Vec3(2.0, 1.0, 0.0)), x)
-        
-        mapData.printNodes("map1")
+        // runNodeInsertionTest(level)
+        // runNodeIterableAccessTest(level)
     }
+}
+
+fun setupNodeTestData(level: ServerLevel) {
+    val mapData = level.mapData
+    mapData.initMap("map1", Vec3(0.0, 0.0, 0.0))
+    mapData.initMap("map2", Vec3(0.0, 0.0, 0.0))
+    mapData.initMap("map3", Vec3(0.0, 0.0, 0.0))
+}
+
+fun runNodeInsertionTest(level: ServerLevel) {
+    val mapData = level.mapData
+    
+    IceboatPlugin.LOGGER.info("INSERTION TEST")
+    val x = mapData.appendNode("map1", NodeData(Vec3(1.0, 0.0, 0.0)))
+    mapData.appendNode("map1", NodeData(Vec3(3.0, 2.0, 1.0)))
+    mapData.insertNodeAfter(NodeData(Vec3(2.0, 1.0, 0.0)), x)
+    
+    mapData.printNodes("map1")
+}
+
+fun runNodeIterableAccessTest(level: ServerLevel) {
+    val mapData = level.mapData
+    
+    IceboatPlugin.LOGGER.info("ITERABLE TEST")   
+    mapData.appendNode("map2", NodeData(Vec3(1.0, 0.0, 0.0)))
+    mapData.appendNode("map2", NodeData(Vec3(2.0, 1.0, 0.0)))
+    mapData.appendNode("map2", NodeData(Vec3(3.0, 2.0, 1.0)))
+
+    mapData.printNodes("map2")
+    
+    for (x in mapData.getAllMapNodes("map2")) {
+        IceboatPlugin.LOGGER.info("node: {}", x)
+    }    
 }

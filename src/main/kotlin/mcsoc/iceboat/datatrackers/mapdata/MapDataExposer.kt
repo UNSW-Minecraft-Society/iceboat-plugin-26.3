@@ -58,6 +58,20 @@ interface MapDataExposer {
             node = node.next()
         } while (node.index != 0u)
     }
+    
+    fun getAllMapNodes(id: String): Iterable<UUID> {
+        val res: MutableCollection<UUID> = mutableListOf()
+        
+        var nodeId = getFirstMapNode(id) ?: return res
+        do {
+            res.add(nodeId)
+            var node = getNode(nodeId) ?: throw StringIndexOutOfBoundsException("1")
+            nodeId = node.next ?: throw StringIndexOutOfBoundsException("4")
+            val index = getNode(nodeId)?.index ?: throw StringIndexOutOfBoundsException("2")
+        } while (index > 0u)
+        
+        return res
+    }
 }
 
 internal interface MapDataHolder : MapDataExposer {

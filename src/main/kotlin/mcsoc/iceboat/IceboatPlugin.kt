@@ -1,6 +1,6 @@
 package mcsoc.iceboat
 
-import mcsoc.iceboat.tests.registerNodeInsertionTest
+import mcsoc.iceboat.tests.registerNodeTests
 import net.fabricmc.api.ModInitializer
 import net.minecraft.resources.Identifier
 import org.slf4j.Logger
@@ -17,7 +17,7 @@ object IceboatPlugin : ModInitializer {
 		// Proceed with mild caution.
 
 		LOGGER.info("Hello Icy world!")
-		registerNodeInsertionTest()
+        registerNodeTests()
 	}
 
 	fun id(path: String) = Identifier.fromNamespaceAndPath(MOD_ID, path)
