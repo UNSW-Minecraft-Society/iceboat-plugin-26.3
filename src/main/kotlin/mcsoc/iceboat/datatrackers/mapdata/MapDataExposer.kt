@@ -39,19 +39,20 @@ data class NodeData(
 interface MapDataExposer {
     // used to roughly mark the layout of the map
     fun getNode(node: UUID): NodeData?
-    fun getFirstMapNode(id: String, pos: Vec3 = Vec3.ZERO): NodeData?
+    fun getFirstMapNode(id: String): UUID?
     fun trackPlayerTime(node: UUID, level: ServerLevel, player: UUID)
-    fun insertNodeAfter(node: UUID?, new: NodeData): UUID
-    fun initMap(id: String, first_pos: Vec3): NodeData
+    fun insertNodeAfter(new: NodeData, node: UUID? = null): UUID
+    fun appendNode(id: String, new: NodeData): UUID
+    fun initMap(id: String, first_pos: Vec3 = Vec3.ZERO): NodeData
 
     fun NodeData.next(): NodeData = this.next?.let{ getNode(it) } ?: throw StringIndexOutOfBoundsException()
     
+    private fun getFirstMapNodeInternal(id: String): NodeData {
+        return getFirstMapNode(id)?.let{ getNode(it) } ?: initMap(id)
+    }
     
     fun printNodes(map: String) {
-        var node = getFirstMapNode(map) ?: return IceboatPlugin.LOGGER.info("node: {}", null)
-        while (node.index != 0u) {
-            node = node.next()
-        }
+        var node = getFirstMapNodeInternal(map)
         do {
             IceboatPlugin.LOGGER.info("node: {}", node)
             node = node.next()
@@ -63,12 +64,27 @@ internal interface MapDataHolder : MapDataExposer {
     val node_map: MutableMap<UUID, NodeData>
     val map_heads: MutableMap<String, UUID>
     
-    override fun getFirstMapNode(id: String, pos: Vec3): NodeData? {
-        return node_map[map_heads[id]]
-    }
+    override fun getFirstMapNode(id: String): UUID? = map_heads[id]
     override fun getNode(node: UUID): NodeData? = node_map[node]
     
-    override fun initMap(id: String, first_pos: Vec3) = NodeData(first_pos, 0u).also{ addNode(it, 0u) }
+    override fun initMap(id: String, first_pos: Vec3): NodeData {
+        return getNode(insertNodeAfter(NodeData(first_pos)).also{ map_heads[id] = it })!!
+    }
+    
+    override fun appendNode(id: String, new: NodeData): UUID {
+        val firstNode = getNode(getFirstMapNode(id) ?: run {
+            initMap(id)
+            getFirstMapNode(id)!!
+        })!!
+        
+        var node = firstNode
+        do {
+            node = node.next()
+            val index = node.next().next().index ?: throw IllegalAccessError()
+        } while (index > 0u)
+        
+        return insertNodeAfter(new, node.next)
+    }
     
     private fun NodeData.propogateIndex() {
         val this_index = this.index ?: return
@@ -105,7 +121,7 @@ internal interface MapDataHolder : MapDataExposer {
         }
     }
     
-    override fun insertNodeAfter(node: UUID?, new: NodeData): UUID {
+    override fun insertNodeAfter(new: NodeData, node: UUID?): UUID {
         if (node == null || node_map.isEmpty()) return addNode(new, 0u).also{node_map[it]?.next = it}
         val oldNode = node_map[node] ?: throw IndexOutOfBoundsException("1")
         return addNode(new, (oldNode.index ?: 0u) + 1u)

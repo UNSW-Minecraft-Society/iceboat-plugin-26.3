@@ -24,6 +24,6 @@ class PlayerDataTracker() : LevelTiedData(), PlayerDataHolder {
     private constructor(player_data: Map<UUID, PlayerData>) : this() {
         this.player_data.putAll(player_data)
     }
-
+    
     override val player_data: MutableMap<UUID, PlayerData> = mutableMapOf()
 }
