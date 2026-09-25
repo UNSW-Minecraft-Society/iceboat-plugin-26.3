@@ -47,14 +47,14 @@ interface MapDataExposer {
 
     fun NodeData.next(): NodeData = this.next?.let{ getNode(it) } ?: throw StringIndexOutOfBoundsException()
     
-    private fun getFirstMapNodeInternal(id: String): NodeData {
-        return getFirstMapNode(id)?.let{ getNode(it) } ?: initMap(id)
+    private fun getFirstMapNodeInternal(id: String): NodeData? {
+        return getFirstMapNode(id)?.let{ getNode(it) }
     }
     
-    fun printNodes(map: String) {
-        var node = getFirstMapNodeInternal(map)
+    fun printNodes(map: String, print: (NodeData) -> Unit = { IceboatPlugin.LOGGER.info("node: {}", it) }) {
+        var node = getFirstMapNodeInternal(map) ?: run { print(null); return }
         do {
-            IceboatPlugin.LOGGER.info("node: {}", node)
+            print(node)
             node = node.next()
         } while (node.index != 0u)
     }
@@ -94,7 +94,7 @@ internal interface MapDataHolder : MapDataExposer {
         var node = firstNode
         do {
             node = node.next()
-            val index = node.next().next().index ?: throw IllegalAccessError()
+            val index = node.next().next().index ?: run { IceboatPlugin.LOGGER.error("appendNode: ", IllegalAccessError()); throw IllegalAccessError() }
         } while (index > 0u)
         
         return insertNodeAfter(new, node.next)

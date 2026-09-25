@@ -1,7 +1,9 @@
 package mcsoc.iceboat
 
+import mcsoc.iceboat.eventhandlers.registerEvents
 import mcsoc.iceboat.tests.registerNodeTests
 import net.fabricmc.api.ModInitializer
+import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback
 import net.minecraft.resources.Identifier
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -18,6 +20,7 @@ object IceboatPlugin : ModInitializer {
 
 		LOGGER.info("Hello Icy world!")
         registerNodeTests()
+        registerEvents()
 	}
 
 	fun id(path: String) = Identifier.fromNamespaceAndPath(MOD_ID, path)
