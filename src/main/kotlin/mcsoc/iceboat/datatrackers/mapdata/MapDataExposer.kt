@@ -3,9 +3,12 @@ package mcsoc.iceboat.datatrackers.mapdata
 import com.mojang.serialization.Codec
 import com.mojang.serialization.codecs.RecordCodecBuilder
 import mcsoc.iceboat.IceboatPlugin
+import mcsoc.iceboat.datatrackers.playerData
 import mcsoc.iceboat.utils.format
 import net.minecraft.core.UUIDUtil
 import net.minecraft.server.level.ServerLevel
+import net.minecraft.world.entity.ai.targeting.TargetingConditions
+import net.minecraft.world.entity.player.Player
 import net.minecraft.world.phys.Vec3
 import java.util.UUID
 import kotlin.time.Duration
@@ -20,6 +23,7 @@ data class NodeData(
     internal var next: UUID? = null
 ) {
     companion object {
+        const val DETECTION_RANGE_SQ = 25.0
         val CODEC: Codec<NodeData> = RecordCodecBuilder.create{it.group(
             Vec3.CODEC.fieldOf("position").forGetter(NodeData::pos),
             Codec.INT.xmap(Int::toUInt, UInt::toInt).fieldOf("number").forGetter(NodeData::index),
@@ -27,6 +31,9 @@ data class NodeData(
             UUIDUtil.CODEC.fieldOf("next").forGetter(NodeData::next),
         ).apply(it, ::NodeData)}
     }
+    
+    fun inRangeOf(p: Vec3): Boolean = pos.distanceToSqr(p) <= DETECTION_RANGE_SQ
+    fun inRangeOf(p: Player): Boolean = inRangeOf(p.position())
     
     override fun toString(): String = 
         "Node $index:\n" +
@@ -39,6 +46,8 @@ data class NodeData(
 interface MapDataExposer {
     // used to roughly mark the layout of the map
     fun getNode(node: UUID): NodeData?
+    fun getNextNode(node: UUID): NodeData? = getNode(node)?.next?.let(::getNode)
+    fun getMapKeys(): Iterable<String>
     fun getFirstMapNode(id: String): UUID?
     fun trackPlayerTime(node: UUID, level: ServerLevel, player: UUID)
     fun insertNodeAfter(new: NodeData, node: UUID? = null): UUID
@@ -80,21 +89,20 @@ internal interface MapDataHolder : MapDataExposer {
     
     override fun getFirstMapNode(id: String): UUID? = map_heads[id]
     override fun getNode(node: UUID): NodeData? = node_map[node]
+    override fun getMapKeys(): Iterable<String> = map_heads.keys
     
     override fun initMap(id: String, first_pos: Vec3): NodeData {
         return getNode(insertNodeAfter(NodeData(first_pos)).also{ map_heads[id] = it })!!
     }
     
     override fun appendNode(id: String, new: NodeData): UUID {
-        val firstNode = getNode(getFirstMapNode(id) ?: run {
-            initMap(id)
-            getFirstMapNode(id)!!
-        })!!
+        val first = getFirstMapNode(id) ?: return insertNodeAfter(new).also{ map_heads[id] = it }
+        val firstNode = getNode(first)
         
         var node = firstNode
         do {
-            node = node.next()
-            val index = node.next().next().index ?: run { IceboatPlugin.LOGGER.error("appendNode: ", IllegalAccessError()); throw IllegalAccessError() }
+            node = node?.next()
+            val index = node?.next()?.next()?.index ?: run { IceboatPlugin.LOGGER.error("appendNode: ", IllegalAccessError()); throw IllegalAccessError() }
         } while (index > 0u)
         
         return insertNodeAfter(new, node.next)
