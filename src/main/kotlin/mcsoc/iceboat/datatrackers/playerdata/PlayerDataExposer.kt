@@ -8,9 +8,6 @@ import mcsoc.iceboat.utils.ticks
 import net.minecraft.core.UUIDUtil
 import java.util.UUID
 import kotlin.time.Duration
-import kotlin.time.Instant
-import kotlin.time.TimeMark
-import kotlin.time.TimeSource
 
 
 class PlayerData(
@@ -52,17 +49,18 @@ class PlayerData(
 
 interface PlayerDataExposer {
     val player_data: Map<UUID, PlayerData>
-    fun getPlayerData(player: UUID): PlayerData
-    fun trackTime(player: UUID, node: UUID, time: Duration)
+    var activePlayers: MutableCollection<UUID>
+    val activePlayerData: Iterable<PlayerData>
+        get() = player_data.filter{it.key in activePlayers}.values
     
-    fun getPlayers(): Iterable<UUID> = player_data.keys
-    fun getPlayerData(): Iterable<PlayerData> = player_data.values
+    fun trackPlayerTimeAtNode(player: UUID, node: UUID, time: Duration)
 }
 
 internal interface PlayerDataHolder : PlayerDataExposer {
     override val player_data: MutableMap<UUID, PlayerData>
-    override fun getPlayerData(player: UUID) = player_data.getOrPut(player){PlayerData()}
-    override fun trackTime(player: UUID, node: UUID, time: Duration) {
+    fun getPlayerData(player: UUID) = player_data.getOrPut(player){PlayerData()}
+
+    override fun trackPlayerTimeAtNode(player: UUID, node: UUID, time: Duration) {
         player_data.getOrPut(player){PlayerData()}
             .let{it.internal_bestNodeTimes[node] = time}
     }

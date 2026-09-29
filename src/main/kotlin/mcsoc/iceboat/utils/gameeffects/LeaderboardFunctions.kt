@@ -9,7 +9,7 @@ import kotlin.time.Duration
 
 
 fun trackPlayerTimeAtNode(level: ServerLevel, player: UUID, node: UUID, time: Duration) {
-    level.playerData.trackTime(player, node, time)
+    level.playerData.trackPlayerTimeAtNode(player, node, time)
     level.mapData.trackPlayerTime(node, level, player)
 }
 

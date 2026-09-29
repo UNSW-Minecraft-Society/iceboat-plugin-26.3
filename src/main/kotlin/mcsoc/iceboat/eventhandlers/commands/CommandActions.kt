@@ -60,7 +60,7 @@ object CommandActions {
     
     fun debug(ctx: CommandContext<CommandSourceStack>): Int {
         val source = ctx.source
-        val playerData = source.level.playerData.getPlayerData(EntityArgument.getPlayer(ctx, PLAYER_ARGUMENT).uuid)
+        val playerData = source.level.playerData.player_data[EntityArgument.getPlayer(ctx, PLAYER_ARGUMENT).uuid]
         source.sendSystemMessage(Component.literal("$playerData"))
         
         return 1

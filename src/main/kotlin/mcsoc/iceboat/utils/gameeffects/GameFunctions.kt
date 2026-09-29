@@ -1,6 +1,5 @@
 package mcsoc.iceboat.utils.gameeffects
 
-import mcsoc.iceboat.datatrackers.gameClock
 import mcsoc.iceboat.datatrackers.mapData
 import mcsoc.iceboat.datatrackers.playerData
 import mcsoc.iceboat.datatrackers.playerdata.PlayerData
@@ -9,11 +8,14 @@ import java.util.UUID
 
 
 fun ServerLevel.tickPlayerNodeTracking() {
-    for (player in level.playerData.getPlayers()) {
+    for (player in level.playerData.activePlayers) {
         
-        val playerData = level.playerData.getPlayerData(player)
-        // skip if player isn't part of a race
+        // skip if player doesn't exist :skull:
+        val playerData = level.playerData.player_data[player] ?: continue
+        // skip if player isn't part of the race
         val curr = playerData.currNode ?: continue
+        
+        // tick player time even if offline
         playerData.timer.tick()
         
         // skip if player is offline
@@ -32,8 +34,8 @@ fun ServerLevel.tickPlayerNodeTracking() {
 }
 
 fun ServerLevel.startRound(firstNode: UUID) {
-    for (player in level.playerData.getPlayers()) {
-        val playerData = level.playerData.getPlayerData(player)        
+    for (player in level.playerData.activePlayers) {
+        val playerData = level.playerData.player_data[player] ?: continue
         playerData.resetData()
         playerData.currNode = firstNode
         
@@ -44,5 +46,5 @@ fun ServerLevel.startRound(firstNode: UUID) {
 }
 
 fun ServerLevel.endRound() {
-    level.playerData.getPlayerData().forEach(PlayerData::resetData)
+    level.playerData.activePlayerData.forEach(PlayerData::resetData)
 }
