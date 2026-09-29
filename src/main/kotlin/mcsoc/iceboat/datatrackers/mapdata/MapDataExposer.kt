@@ -3,11 +3,9 @@ package mcsoc.iceboat.datatrackers.mapdata
 import com.mojang.serialization.Codec
 import com.mojang.serialization.codecs.RecordCodecBuilder
 import mcsoc.iceboat.IceboatPlugin
-import mcsoc.iceboat.datatrackers.playerData
 import mcsoc.iceboat.utils.format
 import net.minecraft.core.UUIDUtil
 import net.minecraft.server.level.ServerLevel
-import net.minecraft.world.entity.ai.targeting.TargetingConditions
 import net.minecraft.world.entity.player.Player
 import net.minecraft.world.phys.Vec3
 import java.util.UUID
@@ -18,15 +16,18 @@ import kotlin.time.Duration
 // next node is grabbed via nodes[index + 1]
 data class NodeData(
     val pos: Vec3,
-    internal var index: UInt? = null,
+    internal var _internal_index: UInt? = null,
     var fastestPlayer: UUID? = null,
     internal var next: UUID? = null
 ) {
+    val index: UInt?
+        get() = _internal_index
+        
     companion object {
         const val DETECTION_RANGE_SQ = 25.0
         val CODEC: Codec<NodeData> = RecordCodecBuilder.create{it.group(
             Vec3.CODEC.fieldOf("position").forGetter(NodeData::pos),
-            Codec.INT.xmap(Int::toUInt, UInt::toInt).fieldOf("number").forGetter(NodeData::index),
+            Codec.INT.xmap(Int::toUInt, UInt::toInt).fieldOf("number").forGetter(NodeData::_internal_index),
             UUIDUtil.CODEC.fieldOf("fastestPlayer").forGetter(NodeData::fastestPlayer),
             UUIDUtil.CODEC.fieldOf("next").forGetter(NodeData::next),
         ).apply(it, ::NodeData)}
@@ -36,7 +37,7 @@ data class NodeData(
     fun inRangeOf(p: Player): Boolean = inRangeOf(p.position())
     
     override fun toString(): String = 
-        "Node $index:\n" +
+        "Node $_internal_index:\n" +
         "  pos: ${pos.format},\n" +
         "  fastest player: $fastestPlayer\n" +
         "  next node: $next"
@@ -65,7 +66,7 @@ interface MapDataExposer {
         do {
             print(node)
             node = node.next()
-        } while (node.index != 0u)
+        } while (node._internal_index != 0u)
     }
     
     fun getAllMapNodes(id: String): Iterable<Pair<UUID, NodeData>> {
@@ -76,7 +77,7 @@ interface MapDataExposer {
             var node = getNode(nodeId) ?: throw StringIndexOutOfBoundsException("1")
             res.add(Pair(nodeId, node))
             nodeId = node.next ?: throw StringIndexOutOfBoundsException("4")
-            val index = getNode(nodeId)?.index ?: throw StringIndexOutOfBoundsException("2")
+            val index = getNode(nodeId)?._internal_index ?: throw StringIndexOutOfBoundsException("2")
         } while (index > 0u)
         
         return res
@@ -102,18 +103,18 @@ internal interface MapDataHolder : MapDataExposer {
         var node = firstNode
         do {
             node = node?.next()
-            val index = node?.next()?.next()?.index ?: run { IceboatPlugin.LOGGER.error("appendNode: ", IllegalAccessError()); throw IllegalAccessError() }
+            val index = node?.next()?.next()?._internal_index ?: run { IceboatPlugin.LOGGER.error("appendNode: ", IllegalAccessError()); throw IllegalAccessError() }
         } while (index > 0u)
         
         return insertNodeAfter(new, node.next)
     }
     
     private fun NodeData.propogateIndex() {
-        val this_index = this.index ?: return
+        val this_index = this._internal_index ?: return
         val next = this.next() 
-        val next_index = next.index ?: return 
+        val next_index = next._internal_index ?: return 
         if (next_index > this_index) {
-            next.index = this_index + 1u
+            next._internal_index = this_index + 1u
             next.propogateIndex()
         }
     }
@@ -127,7 +128,7 @@ internal interface MapDataHolder : MapDataExposer {
     
     // NB: doesn't check for duplicates
     private fun addNode(new: NodeData, index: UInt? = null): UUID = UUID.randomUUID().also{
-        new.index = index
+        new._internal_index = index
         node_map[it] = new
     }
     
@@ -146,7 +147,7 @@ internal interface MapDataHolder : MapDataExposer {
     override fun insertNodeAfter(new: NodeData, node: UUID?): UUID {
         if (node == null || node_map.isEmpty()) return addNode(new, 0u).also{node_map[it]?.next = it}
         val oldNode = node_map[node] ?: throw IndexOutOfBoundsException("1")
-        return addNode(new, (oldNode.index ?: 0u) + 1u)
+        return addNode(new, (oldNode._internal_index ?: 0u) + 1u)
             .also{oldNode.insertNodeAfter(it, new)}
     }
     

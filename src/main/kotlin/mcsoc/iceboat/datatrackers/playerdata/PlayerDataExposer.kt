@@ -2,15 +2,20 @@ package mcsoc.iceboat.datatrackers.playerdata
 
 import com.mojang.serialization.Codec
 import com.mojang.serialization.codecs.RecordCodecBuilder
+import mcsoc.iceboat.IceboatPlugin
 import mcsoc.iceboat.datatrackers.timer.TimeHolder
 import mcsoc.iceboat.utils.CODEC
 import mcsoc.iceboat.utils.ticks
 import net.minecraft.core.UUIDUtil
+import net.minecraft.network.chat.Component
+import net.minecraft.network.chat.ComponentSerialization
+import net.minecraft.world.entity.player.Player
 import java.util.UUID
 import kotlin.time.Duration
 
 
 class PlayerData(
+    val playerName: String,
     var currNode: UUID? = null,
     bestNodeTimes: Map<UUID, Duration> = mapOf(),
 ) {
@@ -24,6 +29,7 @@ class PlayerData(
     val bestNodeTimes: Map<UUID, Duration> get() = internal_bestNodeTimes
     companion object {
         val CODEC: Codec<PlayerData> = RecordCodecBuilder.create{it.group(
+            Codec.STRING.fieldOf("playerName").forGetter(PlayerData::playerName),
             UUIDUtil.CODEC.fieldOf("currNode").forGetter(PlayerData::currNode),
             Codec.unboundedMap(
                 UUIDUtil.STRING_CODEC,
@@ -58,10 +64,12 @@ interface PlayerDataExposer {
 
 internal interface PlayerDataHolder : PlayerDataExposer {
     override val player_data: MutableMap<UUID, PlayerData>
-    fun getPlayerData(player: UUID) = player_data.getOrPut(player){PlayerData()}
+    fun getPlayerData(player: UUID, playerName: String = "Err") = player_data.getOrPut(player){PlayerData(playerName)}
+    fun getPlayerData(player: Player) = player_data.getOrPut(player.uuid){PlayerData(player.displayName.string)}
 
     override fun trackPlayerTimeAtNode(player: UUID, node: UUID, time: Duration) {
-        player_data.getOrPut(player){PlayerData()}
-            .let{it.internal_bestNodeTimes[node] = time}
+        player_data[player]?.let{it.internal_bestNodeTimes[node] = time} ?: run {
+            IceboatPlugin.LOGGER.error("trackPlayerTimeAtNode: ", StringIndexOutOfBoundsException())
+        }
     }
 }
