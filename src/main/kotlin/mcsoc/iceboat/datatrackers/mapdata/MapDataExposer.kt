@@ -14,7 +14,7 @@ import kotlin.time.Duration
 
 // holds node position and index
 // next node is grabbed via nodes[index + 1]
-data class NodeData(
+open class NodeData(
     val pos: Vec3,
     internal var _internal_index: UInt? = null,
     var fastestPlayer: UUID? = null,

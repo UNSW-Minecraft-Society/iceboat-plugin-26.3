@@ -35,7 +35,7 @@ fun ServerLevel.tickPlayerNodeTracking() {
 
 fun ServerLevel.startRound(firstNode: UUID) {
     for (player in level.playerData.activePlayers) {
-        val playerData = level.playerData.player_data[player] ?: continue
+        val playerData = level.playerData.getOrInitPlayerData(player)
         playerData.resetData()
         playerData.currNode = firstNode
         

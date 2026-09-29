@@ -7,30 +7,30 @@ import mcsoc.iceboat.datatrackers.timer.TimeHolder
 import mcsoc.iceboat.utils.CODEC
 import mcsoc.iceboat.utils.ticks
 import net.minecraft.core.UUIDUtil
-import net.minecraft.network.chat.Component
-import net.minecraft.network.chat.ComponentSerialization
 import net.minecraft.world.entity.player.Player
 import java.util.UUID
+import kotlin.math.min
 import kotlin.time.Duration
 
 
 class PlayerData(
     val playerName: String,
-    var currNode: UUID? = null,
-    bestNodeTimes: Map<UUID, Duration> = mapOf(),
 ) {
+    var currNode: UUID? = null
+    var nodesPassed: UInt = 0u
     val timer = object : TimeHolder {
         override var time: Duration = Duration.ZERO
         override fun tick() { time += 1.ticks }
         override fun reset() { time = Duration.ZERO }
     }
     
-    internal val internal_bestNodeTimes: MutableMap<UUID, Duration> = bestNodeTimes.toMutableMap()
+    internal val internal_bestNodeTimes: MutableMap<UUID, Duration> = mutableMapOf()
     val bestNodeTimes: Map<UUID, Duration> get() = internal_bestNodeTimes
     companion object {
         val CODEC: Codec<PlayerData> = RecordCodecBuilder.create{it.group(
             Codec.STRING.fieldOf("playerName").forGetter(PlayerData::playerName),
             UUIDUtil.CODEC.fieldOf("currNode").forGetter(PlayerData::currNode),
+            Codec.INT.xmap(Int::toUInt, UInt::toInt).fieldOf("nodesPassed").forGetter(PlayerData::nodesPassed),
             Codec.unboundedMap(
                 UUIDUtil.STRING_CODEC,
                 Duration.CODEC
@@ -40,8 +40,19 @@ class PlayerData(
         ).apply(it, ::PlayerData)}
     }
     
+    private constructor(
+        playerName: String,
+        currNode: UUID?, nodesPassed: UInt,
+        bestNodeTimes: Map<UUID, Duration>
+    ) : this(playerName) {
+        this.currNode = currNode
+        this.nodesPassed = nodesPassed
+        internal_bestNodeTimes.putAll(bestNodeTimes)
+    }
+        
     fun resetData() {
         currNode = null
+        nodesPassed = 0u
         internal_bestNodeTimes.clear()
         timer.reset()
     }
@@ -55,21 +66,30 @@ class PlayerData(
 
 interface PlayerDataExposer {
     val player_data: Map<UUID, PlayerData>
+    fun getOrInitPlayerData(player: UUID, playerName: String = "Err"): PlayerData
+    fun getOrInitPlayerData(player: Player) = getOrInitPlayerData(player.uuid, player.displayName.string)
+    
     var activePlayers: MutableCollection<UUID>
     val activePlayerData: Iterable<PlayerData>
         get() = player_data.filter{it.key in activePlayers}.values
     
-    fun trackPlayerTimeAtNode(player: UUID, node: UUID, time: Duration)
+    fun trackPlayerTimeAtNode(player: UUID, node: UUID, time: Duration): Boolean
 }
 
 internal interface PlayerDataHolder : PlayerDataExposer {
     override val player_data: MutableMap<UUID, PlayerData>
-    fun getPlayerData(player: UUID, playerName: String = "Err") = player_data.getOrPut(player){PlayerData(playerName)}
-    fun getPlayerData(player: Player) = player_data.getOrPut(player.uuid){PlayerData(player.displayName.string)}
-
-    override fun trackPlayerTimeAtNode(player: UUID, node: UUID, time: Duration) {
-        player_data[player]?.let{it.internal_bestNodeTimes[node] = time} ?: run {
+    override fun getOrInitPlayerData(player: UUID, playerName: String): PlayerData = player_data.getOrPut(player){PlayerData(playerName)}
+    
+    override fun trackPlayerTimeAtNode(player: UUID, node: UUID, time: Duration): Boolean {
+        return player_data[player]?.let {
+            it.nodesPassed++
+            val currNodeTime = it.internal_bestNodeTimes[node] ?: Duration.INFINITE
+            it.internal_bestNodeTimes[node] = minOf(currNodeTime, time)
+            
+            currNodeTime >= time
+        } ?: run {
             IceboatPlugin.LOGGER.error("trackPlayerTimeAtNode: ", StringIndexOutOfBoundsException())
+            false
         }
     }
 }
