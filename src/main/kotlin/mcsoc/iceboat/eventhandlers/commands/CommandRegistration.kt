@@ -19,14 +19,13 @@ private val VEC3_POSITION_ARGUMENT_NODE = Commands.argument(VEC3_POSITION_ARGUME
 internal const val PLAYER_ARGUMENT = "player"
 private val PLAYER_ARGUMENT_NODE = Commands.argument(PLAYER_ARGUMENT, EntityArgument.player())
 
+internal const val PLAYERS_ARGUMENT = "players"
+private val PLAYERS_ARGUMENT_NODE = Commands.argument(PLAYERS_ARGUMENT, EntityArgument.players())
+
+
 fun registerCommands() {
     CommandRegistrationCallback.EVENT.register{dispatcher, buildContext, selection -> dispatcher.register(
     Commands.literal(ROOT_NODE)
-        .then(Commands.literal("debug")
-            .then(PLAYER_ARGUMENT_NODE
-                .executes(CommandActions::debug)
-            )
-        )
         .then(Commands.literal("nodes")
             .then(Commands.literal("list")
                 .then(MAP_NAME_ARGUMENT_NODE
@@ -50,6 +49,23 @@ fun registerCommands() {
             .then(Commands.literal("end")
                 .then(MAP_NAME_ARGUMENT_NODE
                     .executes(CommandActions::endGame)
+                )
+            )
+        )
+        .then(Commands.literal("players")
+            .then(Commands.literal("debug")
+                .then(PLAYER_ARGUMENT_NODE
+                    .executes(CommandActions::debugPlayer)
+                )
+            )
+            .then(Commands.literal("add")
+                .then(PLAYERS_ARGUMENT_NODE
+                    .executes(CommandActions::addPlayersToGame)
+                )
+            )
+            .then(Commands.literal("remove")
+                .then(PLAYERS_ARGUMENT_NODE
+                    .executes(CommandActions::removePlayersFromGame)
                 )
             )
         )

@@ -2,7 +2,6 @@ package mcsoc.iceboat.eventhandlers.commands
 
 import com.mojang.brigadier.arguments.StringArgumentType
 import com.mojang.brigadier.context.CommandContext
-import mcsoc.iceboat.IceboatPlugin
 import mcsoc.iceboat.datatrackers.mapData
 import mcsoc.iceboat.datatrackers.mapdata.NodeData
 import mcsoc.iceboat.datatrackers.playerData
@@ -12,6 +11,7 @@ import net.minecraft.commands.CommandSourceStack
 import net.minecraft.commands.arguments.EntityArgument
 import net.minecraft.commands.arguments.coordinates.Vec3Argument
 import net.minecraft.network.chat.Component
+import net.minecraft.world.entity.player.Player
 
 
 object CommandActions {
@@ -58,10 +58,28 @@ object CommandActions {
         return 1
     }
     
-    fun debug(ctx: CommandContext<CommandSourceStack>): Int {
+    fun debugPlayer(ctx: CommandContext<CommandSourceStack>): Int {
         val source = ctx.source
         val playerData = source.level.playerData.player_data[EntityArgument.getPlayer(ctx, PLAYER_ARGUMENT).uuid]
         source.sendSystemMessage(Component.literal("$playerData"))
+        
+        return 1
+    }
+    
+    fun addPlayersToGame(ctx: CommandContext<CommandSourceStack>): Int {
+        val level = ctx.source.level
+        for (player in EntityArgument.getPlayers(ctx, PLAYERS_ARGUMENT)) {
+            level.playerData.getOrInitPlayerData(player)
+            level.playerData.activePlayers.add(player.uuid)
+        }
+        
+        return 1
+    }
+    
+    fun removePlayersFromGame(ctx: CommandContext<CommandSourceStack>): Int {
+        ctx.source.level.playerData.activePlayers.removeAll(
+            EntityArgument.getPlayers(ctx, PLAYERS_ARGUMENT).map(Player::getUUID).toSet()
+        )
         
         return 1
     }
