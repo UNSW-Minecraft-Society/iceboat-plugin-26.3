@@ -16,6 +16,7 @@ import kotlin.time.Duration
 // next node is grabbed via nodes[index + 1]
 open class NodeData(
     val pos: Vec3,
+    val yawToNext: Float = 0F,
     internal var _internal_index: UInt? = null,
     var fastestPlayer: UUID? = null,
     internal var next: UUID? = null
@@ -27,6 +28,7 @@ open class NodeData(
         const val DETECTION_RANGE_SQ = 25.0
         val CODEC: Codec<NodeData> = RecordCodecBuilder.create{it.group(
             Vec3.CODEC.fieldOf("position").forGetter(NodeData::pos),
+            Codec.FLOAT.fieldOf("yaw").forGetter(NodeData::yawToNext),
             Codec.INT.xmap(Int::toUInt, UInt::toInt).fieldOf("number").forGetter(NodeData::_internal_index),
             UUIDUtil.CODEC.fieldOf("fastestPlayer").forGetter(NodeData::fastestPlayer),
             UUIDUtil.CODEC.fieldOf("next").forGetter(NodeData::next),
@@ -38,9 +40,10 @@ open class NodeData(
     
     override fun toString(): String = 
         "Node $_internal_index:\n" +
-        "  pos: ${pos.format},\n" +
+        "             pos: ${pos.format}\n" +
+        "     yaw to next: $yawToNext\n" +
         "  fastest player: $fastestPlayer\n" +
-        "  next node: $next"
+        "       next node: $next"
 }
 
 
@@ -51,18 +54,16 @@ interface MapDataExposer {
     fun getMapKeys(): Iterable<String>
     fun getFirstMapNode(id: String): UUID?
     fun trackPlayerTime(node: UUID, level: ServerLevel, player: UUID)
-    fun insertNodeAfter(new: NodeData, node: UUID? = null): UUID
+    fun insertNodeAfter(mapId: String, new: NodeData, index: UInt? = null): UUID
+    fun insertNodeAfter(node: UUID, new: NodeData): UUID?
     fun appendNode(id: String, new: NodeData): UUID
     fun initMap(id: String, first_pos: Vec3 = Vec3.ZERO): NodeData
+    fun clearMap(id: String)
 
     fun NodeData.next(): NodeData = this.next?.let{ getNode(it) } ?: throw StringIndexOutOfBoundsException()
     
-    private fun getFirstMapNodeInternal(id: String): NodeData? {
-        return getFirstMapNode(id)?.let{ getNode(it) }
-    }
-    
     fun printNodes(map: String, print: (NodeData) -> Unit = { IceboatPlugin.LOGGER.info("node: {}", it) }) {
-        var node = getFirstMapNodeInternal(map) ?: run { print(null); return }
+        var node: NodeData = getFirstMapNodeInternal(map) ?: run { print(null); return }
         do {
             print(node)
             node = node.next()
@@ -84,6 +85,10 @@ interface MapDataExposer {
     }
 }
 
+private fun MapDataExposer.getFirstMapNodeInternal(id: String): NodeData? {
+    return getFirstMapNode(id)?.let{ getNode(it) }
+}
+
 internal interface MapDataHolder : MapDataExposer {
     val node_map: MutableMap<UUID, NodeData>
     val map_heads: MutableMap<String, UUID>
@@ -92,21 +97,27 @@ internal interface MapDataHolder : MapDataExposer {
     override fun getNode(node: UUID): NodeData? = node_map[node]
     override fun getMapKeys(): Iterable<String> = map_heads.keys
     
+    override fun clearMap(id: String) {
+        getFirstMapNodeInternal(id)?.unlinkChain()
+    }
     override fun initMap(id: String, first_pos: Vec3): NodeData {
-        return getNode(insertNodeAfter(NodeData(first_pos)).also{ map_heads[id] = it })!!
+        return getNode(insertNodeAfter(id, NodeData(first_pos)))!!
     }
     
     override fun appendNode(id: String, new: NodeData): UUID {
-        val first = getFirstMapNode(id) ?: return insertNodeAfter(new).also{ map_heads[id] = it }
-        val firstNode = getNode(first)
+        var node = getFirstMapNodeInternal(id) ?: return insertNodeAfter(id, new)
+        while (node.next().index != 0u) node = node.next()
         
-        var node = firstNode
-        do {
-            node = node?.next()
-            val index = node?.next()?.next()?._internal_index ?: run { IceboatPlugin.LOGGER.error("appendNode: ", IllegalAccessError()); throw IllegalAccessError() }
-        } while (index > 0u)
-        
-        return insertNodeAfter(new, node.next)
+        return node.insertNodeAfter(new)
+    }
+    
+    private fun NodeData.unlinkChain() {
+        val nextNode = this.next()
+        if (nextNode.index != 0u) {
+            nextNode.unlinkChain()
+        }
+        IceboatPlugin.LOGGER.info("\"unlinkChain\": forgot node ${nextNode.index}")
+        this.next = null
     }
     
     private fun NodeData.propogateIndex() {
@@ -120,10 +131,14 @@ internal interface MapDataHolder : MapDataExposer {
     }
     
     // NB: doesn't check if newNode has a next val already
-    private fun NodeData.insertNodeAfter(new: UUID, newNode: NodeData) {
+    private fun NodeData.insertNodeAfter(newNode: NodeData): UUID {
+        val index = this.index ?: throw UninitializedPropertyAccessException("NodeData.insertNodeAfter")
+        val new = addNode(newNode, index + 1u)
         newNode.next = this.next
         this.next = new
         this.propogateIndex()
+        
+        return new
     }
     
     // NB: doesn't check for duplicates
@@ -144,11 +159,31 @@ internal interface MapDataHolder : MapDataExposer {
         }
     }
     
-    override fun insertNodeAfter(new: NodeData, node: UUID?): UUID {
-        if (node == null || node_map.isEmpty()) return addNode(new, 0u).also{node_map[it]?.next = it}
-        val oldNode = node_map[node] ?: throw IndexOutOfBoundsException("1")
-        return addNode(new, (oldNode._internal_index ?: 0u) + 1u)
-            .also{oldNode.insertNodeAfter(it, new)}
+    // if index is null, insert it as new head
+    override fun insertNodeAfter(mapId: String, new: NodeData, index: UInt?): UUID {
+        val mapHead = getFirstMapNodeInternal(mapId)
+        
+        // insert node as new head
+        if (index == null || mapHead == null) {
+            val newNodeId = addNode(new, 0u)
+            map_heads[mapId] = newNodeId
+            mapHead?.let{
+                var node = it
+                // seek to end of node chain
+                while (it.next().index != 0u) node = node.next()
+                node.next = newNodeId
+            } ?: run { new.next = newNodeId }
+            return newNodeId
+        }
+        
+        // seek to specified index
+        var node: NodeData = mapHead
+        for (i in 0u until index) { node = node.next() }
+        return node.insertNodeAfter(new)
+    }
+
+    override fun insertNodeAfter(node: UUID, new: NodeData): UUID? {
+        return getNode(node)?.insertNodeAfter(new)
     }
     
     fun getPlayerTime(level: ServerLevel, player: UUID?, node: UUID): Duration?

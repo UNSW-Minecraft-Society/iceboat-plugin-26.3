@@ -8,6 +8,7 @@ import mcsoc.iceboat.datatrackers.LevelTiedData
 import mcsoc.iceboat.datatrackers.playerData
 import net.minecraft.core.UUIDUtil
 import net.minecraft.server.level.ServerLevel
+import net.minecraft.world.phys.Vec3
 import java.util.UUID
 import kotlin.time.Duration
 
@@ -33,5 +34,27 @@ class MapDataTracker() : LevelTiedData(), MapDataHolder {
 
     override fun getPlayerTime(level: ServerLevel, player: UUID?, node: UUID): Duration? {
         return level.playerData.player_data[player]?.bestNodeTimes[node]
+    }
+    
+    override fun trackPlayerTime(node: UUID, level: ServerLevel, player: UUID) {
+        setDirty()
+        return super.trackPlayerTime(node, level, player)
+    }
+    
+    override fun insertNodeAfter(mapId: String, new: NodeData, index: UInt?): UUID {
+        setDirty()
+        return super.insertNodeAfter(mapId, new, index)
+    }
+    override fun insertNodeAfter(node: UUID, new: NodeData): UUID? {
+        setDirty()
+        return super.insertNodeAfter(node, new)
+    }
+    override fun appendNode(id: String, new: NodeData): UUID {
+        setDirty()
+        return super.appendNode(id, new)
+    }
+    override fun initMap(id: String, first_pos: Vec3): NodeData {
+        setDirty()
+        return super.initMap(id, first_pos)
     }
 }

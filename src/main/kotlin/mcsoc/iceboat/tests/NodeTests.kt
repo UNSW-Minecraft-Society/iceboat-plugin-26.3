@@ -29,9 +29,17 @@ fun runNodeInsertionTest(level: ServerLevel) {
     val mapData = level.mapData
     
     IceboatPlugin.LOGGER.info("INSERTION TEST")
+    IceboatPlugin.LOGGER.info("  APPEND")
     val x = mapData.appendNode("map1", NodeData(Vec3(1.0, 0.0, 0.0)))
-    mapData.appendNode("map1", NodeData(Vec3(3.0, 2.0, 1.0)))
-    mapData.insertNodeAfter(NodeData(Vec3(2.0, 1.0, 0.0)), x)
+    
+    IceboatPlugin.LOGGER.info("  APPEND")
+    mapData.appendNode("map1", NodeData(Vec3(4.0, 3.0, 2.0)))
+    
+    IceboatPlugin.LOGGER.info("  INSERT BY INDEX")
+    mapData.insertNodeAfter("map1", NodeData(Vec3(3.0, 2.0, 1.0)), 1u)
+    
+    IceboatPlugin.LOGGER.info("  INSERT BY ID")
+    mapData.insertNodeAfter(x, NodeData(Vec3(2.0, 1.0, 0.0)))
     
     mapData.printNodes("map1")
 }
