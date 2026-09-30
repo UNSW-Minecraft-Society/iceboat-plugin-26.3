@@ -1,9 +1,11 @@
 package mcsoc.iceboat.eventhandlers.commands
 
+import com.mojang.brigadier.arguments.IntegerArgumentType
 import com.mojang.brigadier.arguments.StringArgumentType
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback
 import net.minecraft.commands.Commands
 import net.minecraft.commands.arguments.EntityArgument
+import net.minecraft.commands.arguments.UuidArgument
 import net.minecraft.commands.arguments.coordinates.Vec3Argument
 
 
@@ -12,6 +14,12 @@ const val ROOT_NODE = "iceboat"
 internal const val MAP_NAME_ARGUMENT = "map"
 private val MAP_NAME_ARGUMENT_NODE = Commands.argument(MAP_NAME_ARGUMENT, StringArgumentType.word())
     .suggests(MapKeySuggestionProvider())
+    
+internal const val NODE_ARGUMENT = "node"
+private val NODE_ARGUMENT_NODE = Commands.argument(NODE_ARGUMENT, UuidArgument.uuid())
+
+internal const val INDEX_ARGUMENT = "index"
+private val INDEX_ARGUMENT_NODE = Commands.argument(INDEX_ARGUMENT, IntegerArgumentType.integer(0))
 
 internal const val VEC3_POSITION_ARGUMENT = "pos1"
 private val VEC3_POSITION_ARGUMENT_NODE = Commands.argument(VEC3_POSITION_ARGUMENT, Vec3Argument.vec3())
@@ -26,16 +34,43 @@ private val PLAYERS_ARGUMENT_NODE = Commands.argument(PLAYERS_ARGUMENT, EntityAr
 fun registerCommands() {
     CommandRegistrationCallback.EVENT.register{dispatcher, buildContext, selection -> dispatcher.register(
     Commands.literal(ROOT_NODE)
-        .then(Commands.literal("nodes")
+        .then(Commands.literal("maps")
             .then(Commands.literal("list")
+                .executes(CommandActions::listMaps)
+            )
+            .then(Commands.literal("clearAll"))
+        )
+        .then(Commands.literal("map")
+            .then(Commands.literal("listNodes")
                 .then(MAP_NAME_ARGUMENT_NODE
                     .executes(CommandActions::printMapNodes)
                 )
             )
-            .then(Commands.literal("add")
+            .then(Commands.literal("appendTo")
                 .then(MAP_NAME_ARGUMENT_NODE
                     .then(VEC3_POSITION_ARGUMENT_NODE
                         .executes(CommandActions::addMapNode)
+                    )
+                )
+            )
+            .then(Commands.literal("insertNodeAfter")
+                .then(MAP_NAME_ARGUMENT_NODE
+                    .then(INDEX_ARGUMENT_NODE
+                        .then(VEC3_POSITION_ARGUMENT_NODE
+                            .executes(CommandActions::insertByMapIndex)
+                        )
+                    )
+                )
+            )
+            .then(Commands.literal("clear")
+                .then(MAP_NAME_ARGUMENT_NODE)
+            )
+        )
+        .then(Commands.literal("node")
+            .then(Commands.literal("insertAfter")
+                .then(NODE_ARGUMENT_NODE
+                    .then(VEC3_POSITION_ARGUMENT_NODE
+                        .executes(CommandActions::insertById)
                     )
                 )
             )
@@ -47,9 +82,7 @@ fun registerCommands() {
                 )
             )
             .then(Commands.literal("end")
-                .then(MAP_NAME_ARGUMENT_NODE
-                    .executes(CommandActions::endGame)
-                )
+                .executes(CommandActions::endGame)
             )
         )
         .then(Commands.literal("players")
