@@ -83,8 +83,8 @@ interface MapDataExposer {
     fun appendNode(id: String, new: NodeData): UUID
     fun initMap(id: String, first_pos: Vec3 = Vec3.ZERO): NodeData
     fun clearMap(id: String)
-
-    fun NodeData.next(): NodeData = this.next?.let{ getNode(it) } ?: throw StringIndexOutOfBoundsException()
+    
+    fun NodeData.next(): NodeData = getNode(this.next) ?: throw StringIndexOutOfBoundsException()
     
     fun printNodes(map: String, print: (NodeData) -> Unit = { IceboatPlugin.LOGGER.info("node: {}", it) }) {
         var node: NodeData = getFirstMapNodeInternal(map) ?: run { print(null); return }
@@ -101,7 +101,7 @@ interface MapDataExposer {
         do {
             var node = getNode(nodeId) ?: throw StringIndexOutOfBoundsException("1")
             res.add(Pair(nodeId, node))
-            nodeId = node.next ?: throw StringIndexOutOfBoundsException("4")
+            nodeId = node.next
             val index = getNode(nodeId)?.internal_index ?: throw StringIndexOutOfBoundsException("2")
         } while (index > 0u)
         
