@@ -72,6 +72,21 @@ object CommandActions {
         return 1
     }
     
+    fun clearMap(ctx: CommandContext<CommandSourceStack>): Int {
+        val source = ctx.source
+        val map_key = StringArgumentType.getString(ctx, MAP_NAME_ARGUMENT)
+        source.level.mapData.clearMap(map_key)
+        source.sendSuccess({Component.literal("Removed all nodes from map '$map_key'")}, true)
+        return 1
+    }
+
+    fun clearAllMaps(ctx: CommandContext<CommandSourceStack>): Int {
+        val source = ctx.source
+        source.level.mapData.getMapKeys().forEach(source.level.mapData::clearMap)
+        source.sendSuccess({Component.literal("Removed all nodes from all maps")}, true)
+        return 1
+    }
+    
     fun startGame(ctx: CommandContext<CommandSourceStack>): Int {
         val source = ctx.source
         val start_key = StringArgumentType.getString(ctx, MAP_NAME_ARGUMENT)

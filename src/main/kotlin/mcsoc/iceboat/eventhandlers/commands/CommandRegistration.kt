@@ -63,7 +63,9 @@ fun registerCommands() {
                 )
             )
             .then(Commands.literal("clear")
-                .then(MAP_NAME_ARGUMENT_NODE)
+                .then(MAP_NAME_ARGUMENT_NODE
+                    .executes(CommandActions::clearMap)
+                )
             )
         )
         .then(Commands.literal("node")
