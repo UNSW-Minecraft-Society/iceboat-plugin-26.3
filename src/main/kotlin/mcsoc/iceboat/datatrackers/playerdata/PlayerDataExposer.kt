@@ -61,6 +61,9 @@ class PlayerData(
         currNode = null
         nodesPassed = 0u
         internal_bestNodeTimes.clear()
+        nodesPassed = 0u
+        nodePosition = 0u
+        lapsCompleted = 0u
         timer.reset()
     }
     
