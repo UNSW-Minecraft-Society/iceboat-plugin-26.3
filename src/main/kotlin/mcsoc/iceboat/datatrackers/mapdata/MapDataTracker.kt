@@ -32,13 +32,13 @@ class MapDataTracker() : LevelTiedData(), MapDataHolder {
     override val node_map: MutableMap<UUID, NodeData> = mutableMapOf()
     override val map_heads: MutableMap<String, UUID> = mutableMapOf()
 
-    override fun getPlayerTime(level: ServerLevel, player: UUID?, node: UUID): Duration? {
+    override fun getPlayerBestTime(level: ServerLevel, player: UUID?, node: UUID): Duration? {
         return level.playerData.player_data[player]?.bestNodeTimes[node]
     }
     
-    override fun trackPlayerTime(node: UUID, level: ServerLevel, player: UUID) {
+    override fun trackPlayerTime(node: UUID, level: ServerLevel, player: UUID, lap: UInt) {
         setDirty()
-        return super.trackPlayerTime(node, level, player)
+        return super.trackPlayerTime(node, level, player, lap)
     }
     
     override fun insertNodeAfter(mapId: String, new: NodeData, index: UInt?): UUID {

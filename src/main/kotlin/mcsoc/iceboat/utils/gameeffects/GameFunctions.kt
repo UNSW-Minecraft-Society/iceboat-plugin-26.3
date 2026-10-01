@@ -26,7 +26,7 @@ fun ServerLevel.tickPlayerNodeTracking() {
         val nextNode = level.mapData.getNode(next) ?: throw StringIndexOutOfBoundsException("tick")
         
         if (nextNode.inRangeOf(player)) {
-            player.trackTimeAtNode(next, playerData.timer.time)
+            player.trackTimeAtNode(playerData.lapsCompleted, next, playerData.timer.time)
             playerData.timer.reset()
             playerData.currNode = next
         }

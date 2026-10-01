@@ -20,32 +20,43 @@ open class NodeData(
     val pos: Vec3,
     val yawToNext: Float = 0F,
 ) {
-    var fastestPlayer: UUID? = null
+    data class LapProgress(
+        var fastestPlayer: UUID? = null,
+        var numPassed: UInt = 0u
+    ) {
+        companion object {
+            val CODEC: Codec<LapProgress> = RecordCodecBuilder.create{it.group(
+                UUIDUtil.CODEC.fieldOf("fastestPlayer").forGetter(LapProgress::fastestPlayer),
+                UInt.CODEC.fieldOf("numPassed").forGetter(LapProgress::numPassed),
+            ).apply(it, ::LapProgress)}
+        }
+    }
+    val playerProgress: MutableList<LapProgress> = mutableListOf()
     internal var internal_index by Delegates.notNull<UInt>()
-    internal var next: UUID? = null
     val index: UInt
         get() = internal_index
+    internal var next: UUID by Delegates.notNull<UUID>()
         
     companion object {
         const val DETECTION_RANGE_SQ = 25.0
         val CODEC: Codec<NodeData> = RecordCodecBuilder.create{it.group(
             Vec3.CODEC.fieldOf("position").forGetter(NodeData::pos),
             Codec.FLOAT.fieldOf("yaw").forGetter(NodeData::yawToNext),
-            UInt.CODEC.fieldOf("number").forGetter(NodeData::internal_index),
-            UUIDUtil.CODEC.fieldOf("fastestPlayer").forGetter(NodeData::fastestPlayer),
+            UInt.CODEC.fieldOf("index").forGetter(NodeData::internal_index),
             UUIDUtil.CODEC.fieldOf("next").forGetter(NodeData::next),
+            LapProgress.CODEC.listOf().fieldOf("playerProgress").forGetter(NodeData::playerProgress)
         ).apply(it, ::NodeData)}
     }
     private constructor(
         pos: Vec3,
         yawToNext: Float,
         index: UInt,
-        fastestPlayer: UUID?,
-        next: UUID?
+        next: UUID,
+        playerTimes: List<LapProgress>
     ) : this(pos, yawToNext) {
-        this.fastestPlayer = fastestPlayer
         this.internal_index = index
         this.next = next
+        this.playerProgress.addAll(playerTimes)
     }
     
     fun inRangeOf(p: Vec3): Boolean = pos.distanceToSqr(p) <= DETECTION_RANGE_SQ
@@ -55,7 +66,7 @@ open class NodeData(
         "Node $internal_index:\n" +
         "             pos: ${pos.format}\n" +
         "     yaw to next: $yawToNext\n" +
-        "  fastest player: $fastestPlayer\n" +
+        // "  fastest player: ${fastestPlayer}\n" +
         "       next node: $next"
 }
 
@@ -66,7 +77,7 @@ interface MapDataExposer {
     fun getNextNode(node: UUID): NodeData? = getNode(node)?.next?.let(::getNode)
     fun getMapKeys(): Iterable<String>
     fun getFirstMapNode(id: String): UUID?
-    fun trackPlayerTime(node: UUID, level: ServerLevel, player: UUID)
+    fun trackPlayerTime(node: UUID, level: ServerLevel, player: UUID, lap: UInt)
     fun insertNodeAfter(mapId: String, new: NodeData, index: UInt? = null): UUID
     fun insertNodeAfter(node: UUID, new: NodeData): UUID?
     fun appendNode(id: String, new: NodeData): UUID
@@ -112,6 +123,7 @@ internal interface MapDataHolder : MapDataExposer {
     
     override fun clearMap(id: String) {
         getFirstMapNodeInternal(id)?.unlinkChain()
+        node_map.remove(getFirstMapNode(id))
     }
     override fun initMap(id: String, first_pos: Vec3): NodeData {
         return getNode(insertNodeAfter(id, NodeData(first_pos)))!!
@@ -129,8 +141,8 @@ internal interface MapDataHolder : MapDataExposer {
         if (nextNode.index != 0u) {
             nextNode.unlinkChain()
         }
+        node_map.remove(this.next)
         IceboatPlugin.LOGGER.info("\"unlinkChain\": forgot node ${nextNode.index}")
-        this.next = null
     }
     
     private fun NodeData.propogateIndex() {
@@ -158,15 +170,18 @@ internal interface MapDataHolder : MapDataExposer {
         node_map[it] = new
     }
     
-    private fun NodeData.getPlayerTime(level: ServerLevel, node: UUID): Duration? = 
-        getPlayerTime(level, this.fastestPlayer, node)
+    private fun NodeData.getFastestPlayerTime(level: ServerLevel, self: UUID, lap: Int): Duration? = 
+        getPlayerBestTime(level, this.playerProgress[lap].fastestPlayer ?: return null, self)
         
-    override fun trackPlayerTime(node: UUID, level: ServerLevel, player: UUID) {
+    override fun trackPlayerTime(node: UUID, level: ServerLevel, player: UUID, lap: UInt) {
+        val lap = lap.toInt()
         getNode(node)?.let{
-            val playerTime = getPlayerTime(level, player, node) ?: return
-            val currFastestTime = it.getPlayerTime(level, node) ?: Duration.INFINITE
+            while (it.playerProgress.size <= lap) it.playerProgress.add(NodeData.LapProgress())
             
-            if (currFastestTime > playerTime) it.fastestPlayer = player
+            val playerTime = getPlayerBestTime(level, player, node) ?: return
+            val currFastestTime = it.getFastestPlayerTime(level, node, lap) ?: Duration.INFINITE
+            
+            if (currFastestTime > playerTime) it.playerProgress[lap].fastestPlayer = player
         }
     }
     
@@ -197,5 +212,5 @@ internal interface MapDataHolder : MapDataExposer {
         return getNode(node)?.insertNodeAfter(new)
     }
     
-    fun getPlayerTime(level: ServerLevel, player: UUID?, node: UUID): Duration?
+    fun getPlayerBestTime(level: ServerLevel, player: UUID?, node: UUID): Duration?
 }

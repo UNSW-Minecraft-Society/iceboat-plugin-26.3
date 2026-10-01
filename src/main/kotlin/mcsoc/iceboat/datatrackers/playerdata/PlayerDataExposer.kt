@@ -18,6 +18,8 @@ class PlayerData(
 ) {
     var currNode: UUID? = null
     var nodesPassed: UInt = 0u
+    var nodePosition = 0u
+    var lapsCompleted: UInt = 0u
     val timer = object : TimeHolder {
         override var time: Duration = Duration.ZERO
         override fun tick() { time += 1.ticks }
@@ -30,7 +32,9 @@ class PlayerData(
         val CODEC: Codec<PlayerData> = RecordCodecBuilder.create{it.group(
             Codec.STRING.fieldOf("playerName").forGetter(PlayerData::playerName),
             UUIDUtil.CODEC.fieldOf("currNode").forGetter(PlayerData::currNode),
-            Codec.INT.xmap(Int::toUInt, UInt::toInt).fieldOf("nodesPassed").forGetter(PlayerData::nodesPassed),
+            UInt.CODEC.fieldOf("nodesPassed").forGetter(PlayerData::nodesPassed),
+            UInt.CODEC.fieldOf("nodePosition").forGetter(PlayerData::nodePosition),
+            UInt.CODEC.fieldOf("lapsCompleted").forGetter(PlayerData::lapsCompleted),
             Codec.unboundedMap(
                 UUIDUtil.STRING_CODEC,
                 Duration.CODEC
@@ -42,11 +46,14 @@ class PlayerData(
     
     private constructor(
         playerName: String,
-        currNode: UUID?, nodesPassed: UInt,
+        currNode: UUID?, 
+        nodesPassed: UInt, nodePosition: UInt, lapsCompleted: UInt,
         bestNodeTimes: Map<UUID, Duration>
     ) : this(playerName) {
         this.currNode = currNode
         this.nodesPassed = nodesPassed
+        this.nodePosition = nodePosition
+        this.lapsCompleted = lapsCompleted
         internal_bestNodeTimes.putAll(bestNodeTimes)
     }
         
@@ -73,15 +80,19 @@ interface PlayerDataExposer {
     val activePlayerData: Iterable<PlayerData>
         get() = player_data.filter{it.key in activePlayers}.values
     
-    fun trackPlayerTimeAtNode(player: UUID, node: UUID, time: Duration): Boolean
+    fun trackPlayerTimeAtNode(player: UUID, node: UUID, index: UInt, time: Duration): Boolean
 }
 
 internal interface PlayerDataHolder : PlayerDataExposer {
     override val player_data: MutableMap<UUID, PlayerData>
     override fun getOrInitPlayerData(player: UUID, playerName: String): PlayerData = player_data.getOrPut(player){PlayerData(playerName)}
     
-    override fun trackPlayerTimeAtNode(player: UUID, node: UUID, time: Duration): Boolean {
+    override fun trackPlayerTimeAtNode(player: UUID, node: UUID, index: UInt, time: Duration): Boolean {
         return player_data[player]?.let {
+            // if first map node
+            if (index == 0u) {
+                it.lapsCompleted++
+            } 
             it.nodesPassed++
             val currNodeTime = it.internal_bestNodeTimes[node] ?: Duration.INFINITE
             it.internal_bestNodeTimes[node] = minOf(currNodeTime, time)

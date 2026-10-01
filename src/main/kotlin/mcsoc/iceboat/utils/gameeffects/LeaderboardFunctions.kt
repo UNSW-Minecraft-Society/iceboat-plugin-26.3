@@ -15,23 +15,28 @@ import java.util.UUID
 import kotlin.time.Duration
 
 
-const val POSITION_STEP: UInt = 40u
-const val SIDEBAR_TIME_ID = "times"
+private const val POSITION_STEP: UInt = 40u
+private const val SIDEBAR_TIME_ID = "times"
 
-fun trackPlayerTimeAtNode(level: ServerLevel, player: UUID, node: UUID, time: Duration) {
-    if (level.playerData.trackPlayerTimeAtNode(player, node, time)) {
+fun trackPlayerTimeAtNode(level: ServerLevel, lap: UInt, player: UUID, node: UUID, time: Duration) {
+    val index = (level.mapData.getNode(node) ?: return)
+        .also{ level.playerData.getOrInitPlayerData(player).nodePosition = it.playerProgress[lap.toInt()].numPassed++ }
+        .index
+    
+    if (level.playerData.trackPlayerTimeAtNode(player, node, index, time)) {
         val player = level.server.playerList.getPlayer(player)
         player?.sendSystemMessage(Component.literal("new pb: $time!"))
     } else {
         val player = level.server.playerList.getPlayer(player)
         player?.sendSystemMessage(Component.literal("split time: $time."))
     }
-    level.mapData.trackPlayerTime(node, level, player)
+    
+    level.mapData.trackPlayerTime(node, level, player, lap)
     updateTimeDisplay(level)
 }
 
-fun ServerPlayer.trackTimeAtNode(node: UUID, time: Duration) 
-    = trackPlayerTimeAtNode(this.level(), this.uuid, node, time)
+fun ServerPlayer.trackTimeAtNode(lap: UInt, node: UUID, time: Duration) 
+    = trackPlayerTimeAtNode(this.level(), lap, this.uuid, node, time)
     
 
 fun updateTimeDisplay(level: ServerLevel) {
@@ -45,7 +50,7 @@ fun updateTimeDisplay(level: ServerLevel) {
         }
     
     for (player in level.playerData.activePlayerData) {
-        val position = player.nodesPassed
-        scoreboard.getOrCreatePlayerScore(ScoreHolder.forNameOnly(player.playerName), timeDisplay, true).set((POSITION_STEP * position).toInt())
+        val position = (player.nodesPassed * POSITION_STEP + player.nodePosition).toInt()
+        scoreboard.getOrCreatePlayerScore(ScoreHolder.forNameOnly(player.playerName), timeDisplay, true).set(position)
     }
 }
