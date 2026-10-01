@@ -19,10 +19,10 @@ private const val POSITION_STEP: UInt = 40u
 private const val SIDEBAR_TIME_ID = "times"
 
 fun trackPlayerTimeAtNode(level: ServerLevel, lap: UInt, player: UUID, node: UUID, time: Duration) {
+    level.mapData.trackPlayerTime(node, level, player, lap)
     val index = (level.mapData.getNode(node) ?: return)
         .also{ level.playerData.getOrInitPlayerData(player).nodePosition = it.playerProgress[lap.toInt()].numPassed++ }
         .index
-    
     if (level.playerData.trackPlayerTimeAtNode(player, node, index, time)) {
         val player = level.server.playerList.getPlayer(player)
         player?.sendSystemMessage(Component.literal("new pb: $time!"))
@@ -31,7 +31,6 @@ fun trackPlayerTimeAtNode(level: ServerLevel, lap: UInt, player: UUID, node: UUI
         player?.sendSystemMessage(Component.literal("split time: $time."))
     }
     
-    level.mapData.trackPlayerTime(node, level, player, lap)
     updateTimeDisplay(level)
 }
 
