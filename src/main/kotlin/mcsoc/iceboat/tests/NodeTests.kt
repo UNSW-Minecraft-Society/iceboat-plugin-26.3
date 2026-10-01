@@ -7,14 +7,15 @@ import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents
 import net.minecraft.server.MinecraftServer
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.phys.Vec3
+import kotlin.system.exitProcess
 
 
 fun registerNodeTests() {
     ServerLifecycleEvents.SERVER_STARTED.register{
         val level = it.overworld().also(::setupNodeTestData)
-        
-        // runNodeInsertionTest(level)
-        // runNodeIterableAccessTest(level)
+            // .also(::runNodeIterableAccessTest)
+            // .also(::runNodeInsertionTest)
+            // .also{ IceboatPlugin.LOGGER.info("Tests Complete. See you next time!") }
     }
 }
 
@@ -48,13 +49,13 @@ fun runNodeIterableAccessTest(level: ServerLevel) {
     val mapData = level.mapData
     
     IceboatPlugin.LOGGER.info("ITERABLE TEST")   
+    IceboatPlugin.LOGGER.info("  APPEND")
     mapData.appendNode("map2", NodeData(Vec3(1.0, 0.0, 0.0)))
+    IceboatPlugin.LOGGER.info("  APPEND")
     mapData.appendNode("map2", NodeData(Vec3(2.0, 1.0, 0.0)))
+    IceboatPlugin.LOGGER.info("  APPEND")
     mapData.appendNode("map2", NodeData(Vec3(3.0, 2.0, 1.0)))
 
+    IceboatPlugin.LOGGER.info("  PRINT")
     mapData.printNodes("map2")
-    
-    for (x in mapData.getAllMapNodes("map2")) {
-        IceboatPlugin.LOGGER.info("node: {}", x)
-    }    
 }
