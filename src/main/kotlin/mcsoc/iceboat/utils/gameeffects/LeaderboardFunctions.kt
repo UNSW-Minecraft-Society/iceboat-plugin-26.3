@@ -49,7 +49,7 @@ fun updateTimeDisplay(level: ServerLevel) {
         }
     
     for (player in level.playerData.activePlayerData) {
-        val position = (player.nodesPassed * POSITION_STEP + player.nodePosition).toInt()
+        val position = ((player.nodesPassed + 1u) * POSITION_STEP - player.nodePosition).toInt()
         scoreboard.getOrCreatePlayerScore(ScoreHolder.forNameOnly(player.playerName), timeDisplay, true).set(position)
     }
 }
