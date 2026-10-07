@@ -5,6 +5,8 @@ import com.mojang.serialization.Codec
 import com.mojang.serialization.MapCodec
 import com.mojang.serialization.codecs.RecordCodecBuilder
 import mcsoc.iceboat.IceboatPlugin
+import mcsoc.iceboat.datatrackers.gamedata.GameDataExposer
+import mcsoc.iceboat.datatrackers.gamedata.GameDataTracker
 import mcsoc.iceboat.datatrackers.mapdata.MapDataExposer
 import mcsoc.iceboat.datatrackers.mapdata.MapDataTracker
 import mcsoc.iceboat.datatrackers.playerdata.PlayerDataExposer
@@ -63,7 +65,7 @@ private class LevelTiedDataTracker() : SavedData() {
     
     @Suppress("UNCHECKED_CAST")
     fun <T : LevelTiedData> getDataOfType(type: LevelDataType<T>): T {
-        return this.tracked_data.getOrPut(type){type.default} as T 
+        return this.tracked_data.getOrPut(type){type.default()} as T 
     }
 }
 
@@ -71,7 +73,7 @@ private val ServerLevel.levelTiedData get() = LevelTiedDataTracker.getLevelData(
 
 
 // codec can be null, indicating that the datatype should be level-tied but not saved
-sealed class LevelDataType<T : LevelTiedData>(val id: String, codec: MapCodec<T>?, val default: T) {
+sealed class LevelDataType<T : LevelTiedData>(val id: String, val default: () -> T, codec: MapCodec<T>? = null) {
     companion object {
         private val REGISTRY: Map<String, LevelDataType<*>> by lazy {
             LevelDataType::class.sealedSubclasses
@@ -85,12 +87,14 @@ sealed class LevelDataType<T : LevelTiedData>(val id: String, codec: MapCodec<T>
     val codec: MapCodec<T> = codec ?: MapCodec.unit(default)
     
     // put another enum value for each tracked data type
-    object MapData : LevelDataType<MapDataTracker>("nodes", null, MapDataTracker())
-    object PlayerData : LevelDataType<PlayerDataTracker>("players", null, PlayerDataTracker())
-    object GameClock : LevelDataType<GameTimer>("clock", null, GameTimer())
+    object MapData : LevelDataType<MapDataTracker>("nodes", ::MapDataTracker)
+    object PlayerData : LevelDataType<PlayerDataTracker>("players", ::PlayerDataTracker)
+    object GameClock : LevelDataType<GameTimer>("clock", ::GameTimer)
+    object RaceData : LevelDataType<GameDataTracker>("race", ::GameDataTracker)
 }
 
 // put other level-tied data getters here
 val ServerLevel.mapData: MapDataExposer get() = this.levelTiedData.getDataOfType(LevelDataType.MapData)
 val ServerLevel.playerData: PlayerDataExposer get() = this.levelTiedData.getDataOfType(LevelDataType.PlayerData)
 val ServerLevel.gameClock: TickExposer get() = this.levelTiedData.getDataOfType(LevelDataType.GameClock)
+val ServerLevel.raceData: GameDataExposer get() = this.levelTiedData.getDataOfType(LevelDataType.RaceData)

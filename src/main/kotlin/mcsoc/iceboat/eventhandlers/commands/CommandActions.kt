@@ -6,6 +6,7 @@ import com.mojang.brigadier.context.CommandContext
 import mcsoc.iceboat.datatrackers.mapData
 import mcsoc.iceboat.datatrackers.mapdata.NodeData
 import mcsoc.iceboat.datatrackers.playerData
+import mcsoc.iceboat.datatrackers.raceData
 import mcsoc.iceboat.utils.gameeffects.endRound
 import mcsoc.iceboat.utils.gameeffects.startRound
 import net.minecraft.commands.CommandSourceStack
@@ -15,6 +16,19 @@ import net.minecraft.commands.arguments.coordinates.Vec3Argument
 import net.minecraft.network.chat.Component
 import net.minecraft.world.entity.player.Player
 
+
+private val CANNOT_MODIFY_MAP: (String) -> Component = {Component.literal("Cannot modify active map '$it'!")}
+
+private fun removeMap(source: CommandSourceStack, mapId: String): Int {
+    if (source.level.raceData.activeMapKey == mapId) {
+        source.sendFailure(CANNOT_MODIFY_MAP(mapId))
+        return 0
+    }
+    
+    source.level.mapData.clearMap(mapId)
+    source.sendSuccess({Component.literal("Removed all nodes from map '$mapId'")}, true)
+    return 1
+}
 
 object CommandActions {
     fun listMaps(ctx: CommandContext<CommandSourceStack>): Int {
@@ -36,13 +50,18 @@ object CommandActions {
     
     fun addMapNode(ctx: CommandContext<CommandSourceStack>): Int {
         val source = ctx.source
-        val map_key = StringArgumentType.getString(ctx, MAP_NAME_ARGUMENT)
+        val mapId = StringArgumentType.getString(ctx, MAP_NAME_ARGUMENT)
+        if (source.level.raceData.activeMapKey == mapId) {
+            source.sendFailure(CANNOT_MODIFY_MAP(mapId))
+            return 0
+        }
+        
         source.level.mapData.appendNode(
             StringArgumentType.getString(ctx, MAP_NAME_ARGUMENT),
             NodeData(Vec3Argument.getVec3(ctx, VEC3_POSITION_ARGUMENT), source.rotation.y)
         )
         
-        source.sendSuccess({Component.literal("Appended node to map '$map_key.'")}, true)
+        source.sendSuccess({Component.literal("Appended node to map '$mapId.'")}, true)
         return 1
     }
     
@@ -60,44 +79,48 @@ object CommandActions {
     
     fun insertByMapIndex(ctx: CommandContext<CommandSourceStack>): Int {
         val source = ctx.source
-        val map_key = StringArgumentType.getString(ctx, MAP_NAME_ARGUMENT)
+        val mapId = StringArgumentType.getString(ctx, MAP_NAME_ARGUMENT)
+        if (source.level.raceData.activeMapKey == mapId) {
+            source.sendFailure(CANNOT_MODIFY_MAP(mapId))
+            return 0
+        }
         val index = IntegerArgumentType.getInteger(ctx, INDEX_ARGUMENT).toUInt()
         source.level.mapData.insertNodeAfter(
-            map_key,
+            mapId,
             NodeData(Vec3Argument.getVec3(ctx, VEC3_POSITION_ARGUMENT), source.rotation.y),
             index
         )
         
-        source.sendSuccess({Component.literal("Added node to map '$map_key' after index $index.")}, true)
+        source.sendSuccess({Component.literal("Added node to map '$mapId' after index $index.")}, true)
         return 1
     }
     
     fun clearMap(ctx: CommandContext<CommandSourceStack>): Int {
         val source = ctx.source
-        val map_key = StringArgumentType.getString(ctx, MAP_NAME_ARGUMENT)
-        source.level.mapData.clearMap(map_key)
-        source.sendSuccess({Component.literal("Removed all nodes from map '$map_key'")}, true)
-        return 1
+        val mapId = StringArgumentType.getString(ctx, MAP_NAME_ARGUMENT)
+        return removeMap(source, mapId)
     }
 
     fun clearAllMaps(ctx: CommandContext<CommandSourceStack>): Int {
         val source = ctx.source
-        source.level.mapData.getMapKeys().forEach(source.level.mapData::clearMap)
+        source.level.mapData.getMapKeys().forEach{removeMap(source, it)}
         source.sendSuccess({Component.literal("Removed all nodes from all maps")}, true)
         return 1
     }
     
     fun startGame(ctx: CommandContext<CommandSourceStack>): Int {
         val source = ctx.source
-        val start_key = StringArgumentType.getString(ctx, MAP_NAME_ARGUMENT)
-        val start = source.level.mapData.getFirstMapNode(start_key) ?: run {
-            source.sendFailure(Component.literal("Failed to start game: Map with key '$start_key' doesn't exist!"))
-            return 0
+        val mapId = StringArgumentType.getString(ctx, MAP_NAME_ARGUMENT)
+        return when (source.level.startRound(mapId)) {
+            1 -> {
+                source.sendFailure(Component.literal("Failed to start game: Map with key '$mapId' doesn't exist!"))
+                0
+            }
+            else -> {
+                source.sendSuccess({Component.literal("Started a new round on map '$mapId.'")}, true)
+                1
+            }
         }
-        source.level.startRound(start)
-        
-        source.sendSuccess({Component.literal("Started a new round on map '$start_key.'")}, true)
-        return 1
     }
     
     fun endGame(ctx: CommandContext<CommandSourceStack>): Int {

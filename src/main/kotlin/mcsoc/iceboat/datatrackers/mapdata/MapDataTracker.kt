@@ -36,10 +36,6 @@ class MapDataTracker() : LevelTiedData(), MapDataHolder {
         return level.playerData.player_data[player]?.bestNodeTimes[node]
     }
     
-    override fun trackPlayerTime(node: UUID, level: ServerLevel, player: UUID, lap: UInt) {
-        setDirty()
-        return super.trackPlayerTime(node, level, player, lap)
-    }
     
     override fun insertNodeAfter(mapId: String, new: NodeData, index: UInt?): UUID {
         setDirty()
