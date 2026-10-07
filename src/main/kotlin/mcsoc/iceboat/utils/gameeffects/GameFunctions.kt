@@ -78,6 +78,7 @@ fun ServerLevel.startRound(mapId: String): Int {
 }
 
 fun ServerLevel.endRound() {
+    // clear player data
     this.playerData.activePlayerData.forEach(PlayerData::resetData)
     this.raceData.setInactive()
 }

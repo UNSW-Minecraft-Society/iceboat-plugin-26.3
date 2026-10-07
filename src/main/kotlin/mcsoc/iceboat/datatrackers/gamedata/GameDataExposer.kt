@@ -49,9 +49,14 @@ interface GameDataExposer {
 
 internal interface GameDataHolder : GameDataExposer {
     override var activeMapKey: String?
-    // set to inactive if null
-    override fun setActiveMap(key: String) { activeMapKey = key }
-    override fun setInactive() { activeMapKey = null }
+    
+    private fun setActiveMapInternal(key: String?) { 
+        activeMapKey = key
+        // clear old race data
+        nodeProgress.clear()
+    }
+    override fun setActiveMap(key: String) = setActiveMapInternal(key)
+    override fun setInactive() = setActiveMapInternal(null)
     
     override var nodeProgress: MutableList<MutableMap<UUID, LapProgress>>
     override fun getNodeProgress(node: UUID, lap: Int): LapProgress = super.getNodeProgress(node, lap) ?: run {
