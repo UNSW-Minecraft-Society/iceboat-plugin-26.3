@@ -87,10 +87,10 @@ sealed class LevelDataType<T : LevelTiedData>(val id: String, val default: () ->
     val codec: MapCodec<T> = codec ?: MapCodec.unit(default)
     
     // put another enum value for each tracked data type
-    object MapData : LevelDataType<MapDataTracker>("nodes", ::MapDataTracker)
-    object PlayerData : LevelDataType<PlayerDataTracker>("players", ::PlayerDataTracker)
-    object GameClock : LevelDataType<GameTimer>("clock", ::GameTimer)
-    object RaceData : LevelDataType<GameDataTracker>("race", ::GameDataTracker)
+    object MapData : LevelDataType<MapDataTracker>("nodes", ::MapDataTracker, MapDataTracker.CODEC)
+    object PlayerData : LevelDataType<PlayerDataTracker>("players", ::PlayerDataTracker, PlayerDataTracker.CODEC)
+    object GameClock : LevelDataType<GameTimer>("clock", ::GameTimer, GameTimer.CODEC)
+    object RaceData : LevelDataType<GameDataTracker>("race", ::GameDataTracker, GameDataTracker.CODEC)
 }
 
 // put other level-tied data getters here
