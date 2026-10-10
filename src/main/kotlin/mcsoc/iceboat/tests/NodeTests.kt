@@ -19,13 +19,6 @@ fun registerNodeTests() {
     }
 }
 
-fun setupNodeTestData(level: ServerLevel) {
-    val mapData = level.mapData
-    mapData.initMap("map1", Vec3(0.0, 0.0, 0.0))
-    mapData.initMap("map2", Vec3(0.0, 0.0, 0.0))
-    mapData.initMap("map3", Vec3(0.0, 0.0, 0.0))
-}
-
 fun runNodeInsertionTest(level: ServerLevel) {
     val mapData = level.mapData
     

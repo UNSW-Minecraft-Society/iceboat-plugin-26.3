@@ -1,7 +1,7 @@
 package mcsoc.iceboat
 
 import mcsoc.iceboat.eventhandlers.registerEvents
-import mcsoc.iceboat.tests.registerNodeTests
+import mcsoc.iceboat.tests.registerTests
 import net.fabricmc.api.ModInitializer
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback
 import net.minecraft.resources.Identifier
@@ -19,7 +19,7 @@ object IceboatPlugin : ModInitializer {
 		// Proceed with mild caution.
 
 		LOGGER.info("Hello Icy world!")
-        registerNodeTests()
+        registerTests()
         registerEvents()
 	}
 
