@@ -4,22 +4,44 @@ import com.mojang.serialization.Codec
 import com.mojang.serialization.codecs.RecordCodecBuilder
 import mcsoc.iceboat.IceboatPlugin
 import mcsoc.iceboat.utils.CODEC
+import mcsoc.iceboat.utils.FLOAT_PI
 import mcsoc.iceboat.utils.format
 import net.minecraft.core.UUIDUtil
 import net.minecraft.server.level.ServerLevel
-import net.minecraft.world.entity.player.Player
 import net.minecraft.world.phys.Vec3
+import org.joml.Matrix2d
+import org.joml.Vector2d
+import org.joml.minus
+import org.joml.times
 import java.util.UUID
+import kotlin.math.PI
+import kotlin.math.sqrt
 import kotlin.properties.Delegates
 import kotlin.time.Duration
 
 
 // holds node position and index
 // next node is grabbed via nodes[index + 1]
-open class NodeData(
+data class NodeData(
     val pos: Vec3,
     val yawToNext: Float = 0F,
+    val range: Double = sqrt(DETECTION_RANGE_SQ)
 ) {
+    private val c1: Vector2d
+    private val c2: Vector2d
+    init {
+        val unrotated = Vec3.Z_AXIS.scale(range)
+        val p1 = unrotated.yRot(yawToNextRadians + FLOAT_PI / 2)
+        val p2 = unrotated.yRot(yawToNextRadians - FLOAT_PI / 2)
+        c1 = Vector2d(p1.x, p1.z)
+        c2 = Vector2d(p2.x, p2.z)
+    }
+    private fun getCheckMatrix(before: Vec3): Matrix2d {
+        val before = Vector2d(before.x - pos.x, before.z - pos.z)
+        return Matrix2d(c1 - before, c2 - before).invert()
+    }
+
+    private val yawToNextRadians get() = ((yawToNext * PI) / 180).toFloat()
     internal var internal_index by Delegates.notNull<UInt>()
     val index: UInt
         get() = internal_index
@@ -44,8 +66,16 @@ open class NodeData(
         this.next = next
     }
     
-    fun inRangeOf(p: Vec3): Boolean = pos.distanceToSqr(p) <= DETECTION_RANGE_SQ
-    fun inRangeOf(p: Player): Boolean = inRangeOf(p.position())
+    // Algorithm derived by Smitology
+    fun passedBy(before: Vec3, after: Vec3): Boolean {
+        // IceboatPlugin.LOGGER.info("before: {}", before)
+        // IceboatPlugin.LOGGER.info("pos: {}", pos)
+        // IceboatPlugin.LOGGER.info("after: {}", after)
+        val delta = after.subtract(before)
+        
+        return (getCheckMatrix(before) * Vector2d(delta.x, delta.z))
+            .let{ it.x >= 0 && it.y >= 0 && it.x + it.y >= 1 }
+    }
     
     override fun toString(): String = 
         "Node $internal_index:\n" +

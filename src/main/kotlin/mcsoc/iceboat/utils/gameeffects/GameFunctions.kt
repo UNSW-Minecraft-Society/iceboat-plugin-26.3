@@ -6,9 +6,11 @@ import mcsoc.iceboat.datatrackers.playerdata.PlayerData
 import mcsoc.iceboat.datatrackers.raceData
 import net.minecraft.network.chat.Component
 import net.minecraft.server.level.ServerLevel
-import net.minecraft.server.level.ServerPlayer
+import net.minecraft.world.phys.Vec3
 import java.util.UUID
 
+
+val oldPosMap: MutableMap<UUID, Vec3> = mutableMapOf()
 
 fun ServerLevel.tickPlayerNodeTracking() {
     val finishedPlayers: MutableCollection<UUID> = mutableListOf()
@@ -29,18 +31,20 @@ fun ServerLevel.tickPlayerNodeTracking() {
         val next = level.mapData.getNode(curr)?.next ?: throw StringIndexOutOfBoundsException("tick")
         val nextNode = level.mapData.getNode(next) ?: throw StringIndexOutOfBoundsException("tick")
         
-        if (nextNode.inRangeOf(player)) {
-            player.trackTimeAtNode(playerData.lapsCompleted, next, playerData.timer.time)
-            if (playerData.lapsCompleted >= level.raceData.numLaps) {
-                // trigger win
-                finishedPlayers.add(playerId)
-                playerData.currNode = null
-            } else {
-                playerData.timer.reset()
-                playerData.currNode = next
+        oldPosMap[playerId]?.let{
+            if (nextNode.passedBy(it, player.position())) {
+                player.trackTimeAtNode(playerData.lapsCompleted, next, playerData.timer.time)
+                if (playerData.lapsCompleted >= level.raceData.numLaps) {
+                    // trigger win
+                    finishedPlayers.add(playerId)
+                    playerData.currNode = null
+                } else {
+                    playerData.timer.reset()
+                    playerData.currNode = next
+                }
             }
-            
         }
+        oldPosMap[playerId] = player.position()
     }
     for (playerId in level.playerData.activePlayers) {
         val player = level.server.playerList.getPlayer(playerId) ?: continue

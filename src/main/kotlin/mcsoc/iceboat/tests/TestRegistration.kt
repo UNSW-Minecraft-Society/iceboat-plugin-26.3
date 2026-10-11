@@ -8,6 +8,7 @@ import net.minecraft.world.phys.Vec3
 fun registerTests() {
     // registerNodeTests()
     // registerTestCommands()
+    registerCheckzoneTests()
 }
 
 fun setupNodeTestData(level: ServerLevel) {
