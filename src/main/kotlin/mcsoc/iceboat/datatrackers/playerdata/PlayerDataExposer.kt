@@ -81,7 +81,7 @@ interface PlayerDataExposer {
     fun getOrInitPlayerData(player: UUID, playerName: String = "Err"): PlayerData
     fun getOrInitPlayerData(player: Player) = getOrInitPlayerData(player.uuid, player.displayName.string)
     
-    var activePlayers: MutableCollection<UUID>
+    val activePlayers: MutableCollection<UUID>
     val activePlayerData: Iterable<PlayerData>
         get() = player_data.filter{it.key in activePlayers}.values
     

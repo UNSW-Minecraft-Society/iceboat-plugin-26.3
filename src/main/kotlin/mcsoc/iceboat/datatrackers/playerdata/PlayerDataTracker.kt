@@ -18,13 +18,16 @@ class PlayerDataTracker() : LevelTiedData(), PlayerDataHolder {
                 PlayerData.CODEC
             )
             .optionalFieldOf("player_data", mapOf())
-            .forGetter(PlayerDataTracker::player_data)
+            .forGetter(PlayerDataTracker::player_data),
+            UUIDUtil.CODEC.listOf().fieldOf("activePlayers").forGetter(PlayerDataTracker::activePlayersList)
         ).apply(it, ::PlayerDataTracker)}
     }
-    private constructor(player_data: Map<UUID, PlayerData>) : this() {
+    private constructor(player_data: Map<UUID, PlayerData>, activePlayers: List<UUID>) : this() {
         this.player_data.putAll(player_data)
+        this.activePlayers.addAll(activePlayers)
     }
     
     override val player_data: MutableMap<UUID, PlayerData> = mutableMapOf()
-    override var activePlayers: MutableCollection<UUID> = mutableSetOf()
+    override val activePlayers: MutableCollection<UUID> = mutableSetOf()
+    private val activePlayersList get() = activePlayers.toList()
 }
