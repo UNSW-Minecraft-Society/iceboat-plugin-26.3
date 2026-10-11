@@ -7,7 +7,6 @@ import mcsoc.iceboat.utils.CODEC
 import mcsoc.iceboat.utils.FLOAT_PI
 import mcsoc.iceboat.utils.format
 import net.minecraft.core.UUIDUtil
-import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.phys.Vec3
 import org.joml.Matrix2d
 import org.joml.Vector2d
@@ -17,7 +16,6 @@ import java.util.UUID
 import kotlin.math.PI
 import kotlin.math.sqrt
 import kotlin.properties.Delegates
-import kotlin.time.Duration
 
 
 // holds node position and index
@@ -31,8 +29,8 @@ data class NodeData(
     private val c2: Vector2d
     init {
         val unrotated = Vec3.Z_AXIS.scale(range)
-        val p1 = unrotated.yRot(yawToNextRadians + FLOAT_PI / 2)
-        val p2 = unrotated.yRot(yawToNextRadians - FLOAT_PI / 2)
+        val p1 = unrotated.yRot(-yawToNextRadians + FLOAT_PI / 2)
+        val p2 = unrotated.yRot(-yawToNextRadians - FLOAT_PI / 2)
         c1 = Vector2d(p1.x, p1.z)
         c2 = Vector2d(p2.x, p2.z)
     }
@@ -86,6 +84,23 @@ data class NodeData(
 }
 
 
+data class MapData(
+    var firstNodeId: UUID
+) {
+    val startPositions: MutableCollection<Vec3> = mutableSetOf()
+    private val startPositionsList get() = startPositions.toList()
+    companion object {
+        val CODEC: Codec<MapData> = RecordCodecBuilder.create{it.group(
+            UUIDUtil.CODEC.fieldOf("firstNodeId").forGetter(MapData::firstNodeId),
+            Vec3.CODEC.listOf().fieldOf("startPositions").forGetter(MapData::startPositionsList)
+        ).apply(it, ::MapData)}
+    }
+    private constructor(firstNodeId: UUID, startPositions: List<Vec3>) : this(firstNodeId) {
+        this.startPositions.addAll(startPositions)
+    }
+}
+
+
 interface MapDataExposer {
     // used to roughly mark the layout of the map
     fun getNode(node: UUID): NodeData?
@@ -96,11 +111,11 @@ interface MapDataExposer {
     fun insertNodeAfter(node: UUID, new: NodeData): UUID?
     
     fun getMapKeys(): Iterable<String>
-    fun getFirstMapNode(id: String): UUID?
+    fun getMapData(id: String): MapData?
     
     fun initMap(id: String, first_pos: Vec3 = Vec3.ZERO): NodeData
     fun clearMap(id: String)
-        
+    
     
     fun NodeData.next(): NodeData = getNode(this.next) ?: throw StringIndexOutOfBoundsException()
     
@@ -115,7 +130,7 @@ interface MapDataExposer {
     fun getAllMapNodes(id: String): Iterable<Pair<UUID, NodeData>> {
         val res: MutableCollection<Pair<UUID, NodeData>> = mutableListOf()
         
-        var nodeId = getFirstMapNode(id) ?: return res
+        var nodeId = getMapData(id)?.firstNodeId ?: return res
         do {
             var node = getNode(nodeId) ?: throw StringIndexOutOfBoundsException("1")
             res.add(Pair(nodeId, node))
@@ -128,20 +143,21 @@ interface MapDataExposer {
 }
 
 private fun MapDataExposer.getFirstMapNodeInternal(id: String): NodeData? {
-    return getFirstMapNode(id)?.let{ getNode(it) }
+    return getMapData(id)?.firstNodeId?.let{ getNode(it) }
 }
 
 internal interface MapDataHolder : MapDataExposer {
     val node_map: MutableMap<UUID, NodeData>
-    val map_heads: MutableMap<String, UUID>
+    val mapDataMap: MutableMap<String, MapData>
     
-    override fun getFirstMapNode(id: String): UUID? = map_heads[id]
+    override fun getMapData(id: String): MapData? = mapDataMap[id]
     override fun getNode(node: UUID): NodeData? = node_map[node]
-    override fun getMapKeys(): Iterable<String> = map_heads.keys
+    override fun getMapKeys(): Iterable<String> = mapDataMap.keys
     
     override fun clearMap(id: String) {
         getFirstMapNodeInternal(id)?.unlinkChain()
-        node_map.remove(getFirstMapNode(id))
+        node_map.remove(getMapData(id)?.firstNodeId)
+        mapDataMap.remove(id)
     }
     override fun initMap(id: String, first_pos: Vec3): NodeData {
         return getNode(insertNodeAfter(id, NodeData(first_pos)))!!
@@ -196,7 +212,7 @@ internal interface MapDataHolder : MapDataExposer {
         // insert node as new head
         if (index == null || mapHead == null) {
             val newNodeId = addNode(new, 0u)
-            map_heads[mapId] = newNodeId
+            mapDataMap[mapId]?.let{it.firstNodeId = newNodeId} ?: run { mapDataMap[mapId] = MapData(newNodeId) }
             mapHead?.let{
                 var node = it
                 // seek to end of node chain
@@ -215,6 +231,4 @@ internal interface MapDataHolder : MapDataExposer {
     override fun insertNodeAfter(node: UUID, new: NodeData): UUID? {
         return getNode(node)?.insertNodeAfter(new)
     }
-    
-    fun getPlayerBestTime(level: ServerLevel, player: UUID?, node: UUID): Duration?
 }

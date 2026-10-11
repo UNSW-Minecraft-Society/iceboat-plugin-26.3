@@ -21,21 +21,23 @@ class MapDataTracker() : LevelTiedData(), MapDataHolder {
                 UUIDUtil.STRING_CODEC, 
                 NodeData.CODEC
             )   
-            .optionalFieldOf("nodes", mapOf())
-            .forGetter(MapDataTracker::node_map)
+                .optionalFieldOf("nodes", mapOf())
+                .forGetter(MapDataTracker::node_map),
+            Codec.unboundedMap(
+                Codec.STRING, 
+                MapData.CODEC
+            )   
+                .optionalFieldOf("maps", mapOf())
+                .forGetter(MapDataTracker::mapDataMap)
         ).apply(it, ::MapDataTracker)}
     }
-    private constructor(nodes: Map<UUID, NodeData>) : this() {
+    private constructor(nodes: Map<UUID, NodeData>, maps: Map<String, MapData>) : this() {
         this.node_map.putAll(nodes)
+        this.mapDataMap.putAll(maps)
     }
     
     override val node_map: MutableMap<UUID, NodeData> = mutableMapOf()
-    override val map_heads: MutableMap<String, UUID> = mutableMapOf()
-
-    override fun getPlayerBestTime(level: ServerLevel, player: UUID?, node: UUID): Duration? {
-        return level.playerData.player_data[player]?.bestNodeTimes[node]
-    }
-    
+    override val mapDataMap: MutableMap<String, MapData> = mutableMapOf()
     
     override fun insertNodeAfter(mapId: String, new: NodeData, index: UInt?): UUID {
         setDirty()
