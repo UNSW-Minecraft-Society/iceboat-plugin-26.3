@@ -1,10 +1,18 @@
 package mcsoc.iceboat.utils.gameeffects
 
+import mcsoc.iceboat.IceboatPlugin
 import mcsoc.iceboat.datatrackers.mapData
 import mcsoc.iceboat.datatrackers.playerData
 import mcsoc.iceboat.datatrackers.playerdata.PlayerData
 import mcsoc.iceboat.datatrackers.raceData
+import mcsoc.iceboat.utils.format
 import net.minecraft.network.chat.Component
+import net.minecraft.network.chat.FontDescription
+import net.minecraft.network.chat.MutableComponent
+import net.minecraft.network.chat.Style
+import net.minecraft.network.chat.TextColor
+import net.minecraft.network.protocol.game.ClientboundSetActionBarTextPacket
+import net.minecraft.resources.Identifier
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.entity.EntityType
@@ -15,11 +23,13 @@ import net.minecraft.world.entity.vehicle.boat.ChestRaft
 import net.minecraft.world.item.Items
 import net.minecraft.world.level.GameType
 import net.minecraft.world.phys.Vec3
+import java.math.RoundingMode
+import java.util.Queue
 import java.util.UUID
 
 
 // This isn't level-tied, but I don't forsee any actual problems.
-private val oldPosMap: MutableMap<UUID, Vec3> = mutableMapOf()
+private val oldPosMap: MutableMap<UUID, ArrayDeque<Vec3>> = mutableMapOf()
 
 // Bamboo is a "ChestRaft" not ChestBoat :sob:
 private val chestBoatTypes: Set<EntityType<out ChestBoat>> = setOf(
@@ -65,7 +75,7 @@ fun ServerLevel.tickPlayerNodeTracking() {
         val nextNode = level.mapData.getNode(next) ?: throw StringIndexOutOfBoundsException("tick")
         
         oldPosMap[playerId]?.let{
-            if (nextNode.passedBy(it, player.position())) {
+            if (nextNode.passedBy(it.last(), player.position())) {
                 player.trackTimeAtNode(playerData.lapsCompleted, next, playerData.timer.time)
                 if (playerData.lapsCompleted >= level.raceData.numLaps) {
                     // trigger win
@@ -76,8 +86,26 @@ fun ServerLevel.tickPlayerNodeTracking() {
                     playerData.currNode = next
                 }
             }
-        }
-        oldPosMap[playerId] = player.position()
+            
+            val velocity = it.last().subtract(player.position()).length().toBigDecimal().setScale(3, RoundingMode.FLOOR)
+            player.connection.send(ClientboundSetActionBarTextPacket(
+                Component.literal("Velocity: ").append(
+                    Component.literal("$velocity".padEnd(5)).withStyle(Style.EMPTY
+                    // monospaced font
+                    .withFont(FontDescription.Resource(Identifier.withDefaultNamespace("uniform")))
+                    .withColor(TextColor.GRAY)
+                    .withBold(true)
+                    .withUnderlined(true)
+                    )
+                )
+            ))
+        } ?: run { oldPosMap[playerId] = ArrayDeque(3) }
+        oldPosMap[playerId]?.let{
+            it.add(player.position())
+            if (it.size > 3)  {
+                it.removeFirstOrNull()
+            }
+        }        
     }
     for (playerId in level.playerData.activePlayers) {
         val player = level.server.playerList.getPlayer(playerId) ?: continue
