@@ -8,6 +8,7 @@ import mcsoc.iceboat.utils.CODEC
 import mcsoc.iceboat.utils.ticks
 import net.minecraft.core.UUIDUtil
 import net.minecraft.world.entity.player.Player
+import java.util.Optional
 import java.util.UUID
 import kotlin.math.min
 import kotlin.time.Duration
@@ -17,6 +18,7 @@ class PlayerData(
     val playerName: String,
 ) {
     var currNode: UUID? = null
+    private val currNodeOptional get() = Optional.ofNullable(currNode)
     var nodesPassed: UInt = 0u
     var nodePosition = 0u
     var lapsCompleted: UInt = 0u
@@ -31,7 +33,7 @@ class PlayerData(
     companion object {
         val CODEC: Codec<PlayerData> = RecordCodecBuilder.create{it.group(
             Codec.STRING.fieldOf("playerName").forGetter(PlayerData::playerName),
-            UUIDUtil.CODEC.fieldOf("currNode").forGetter(PlayerData::currNode),
+            UUIDUtil.CODEC.optionalFieldOf("currNode").forGetter(PlayerData::currNodeOptional),
             UInt.CODEC.fieldOf("nodesPassed").forGetter(PlayerData::nodesPassed),
             UInt.CODEC.fieldOf("nodePosition").forGetter(PlayerData::nodePosition),
             UInt.CODEC.fieldOf("lapsCompleted").forGetter(PlayerData::lapsCompleted),
@@ -46,11 +48,11 @@ class PlayerData(
     
     private constructor(
         playerName: String,
-        currNode: UUID?, 
+        currNode: Optional<UUID>,
         nodesPassed: UInt, nodePosition: UInt, lapsCompleted: UInt,
         bestNodeTimes: Map<UUID, Duration>
     ) : this(playerName) {
-        this.currNode = currNode
+        this.currNode = currNode.orElse(null)
         this.nodesPassed = nodesPassed
         this.nodePosition = nodePosition
         this.lapsCompleted = lapsCompleted

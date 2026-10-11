@@ -30,7 +30,7 @@ data class LapProgress(
 }
 
 interface GameDataExposer {
-    val activeMapKey: String?
+    val activeMapKey: String
     fun setActiveMap(key: String)
     fun setInactive()
     
@@ -48,10 +48,10 @@ interface GameDataExposer {
 }
 
 internal interface GameDataHolder : GameDataExposer {
-    override var activeMapKey: String?
+    override var activeMapKey: String
     
     private fun setActiveMapInternal(key: String?) { 
-        activeMapKey = key
+        activeMapKey = (key ?: "")
         // clear old race data
         nodeProgress.clear()
     }

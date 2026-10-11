@@ -17,11 +17,11 @@ class GameDataTracker() : LevelTiedData(), GameDataHolder {
             Codec.unboundedMap(UUIDUtil.STRING_CODEC, LapProgress.CODEC).listOf().fieldOf("nodeProgress").forGetter(GameDataTracker::nodeProgress)
         ).apply(it, ::GameDataTracker)}
     }
-    private constructor(activeMapKey: String?, nodeProgress: MutableList<MutableMap<UUID, LapProgress>>) : this() {
+    private constructor(activeMapKey: String, nodeProgress: MutableList<MutableMap<UUID, LapProgress>>) : this() {
         this.activeMapKey = activeMapKey
         nodeProgress.map{it.toMutableMap()}.forEach(this.nodeProgress::add)
     }
     
-    override var activeMapKey: String? = null
+    override var activeMapKey: String = ""
     override var nodeProgress: MutableList<MutableMap<UUID, LapProgress>> = mutableListOf()
 }
