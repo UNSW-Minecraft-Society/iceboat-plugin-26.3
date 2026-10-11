@@ -38,8 +38,14 @@ fun ServerPlayer.trackTimeAtNode(lap: UInt, node: UUID, time: Duration)
     = trackPlayerTimeAtNode(this.level(), lap, this.uuid, node, time)
     
 
+// NB this is **currently** server-tied rather than level-tied
 fun updateTimeDisplay(level: ServerLevel) {
     val scoreboard = level.server.scoreboard
+    
+    if (level.raceData.activeMapKey.isEmpty()) {
+        scoreboard.getObjective(SIDEBAR_TIME_ID)?.let(scoreboard::removeObjective)
+        return
+    }
     val timeDisplay = scoreboard.getObjective(SIDEBAR_TIME_ID) ?:
         scoreboard.addObjective(
             SIDEBAR_TIME_ID, ObjectiveCriteria.DUMMY, Component.literal("Times"), 

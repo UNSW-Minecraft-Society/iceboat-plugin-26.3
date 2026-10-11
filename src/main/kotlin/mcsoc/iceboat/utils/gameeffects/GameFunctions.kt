@@ -6,11 +6,44 @@ import mcsoc.iceboat.datatrackers.playerdata.PlayerData
 import mcsoc.iceboat.datatrackers.raceData
 import net.minecraft.network.chat.Component
 import net.minecraft.server.level.ServerLevel
+import net.minecraft.server.level.ServerPlayer
+import net.minecraft.world.entity.EntityType
+import net.minecraft.world.entity.EntityTypes
+import net.minecraft.world.entity.vehicle.boat.AbstractChestBoat
+import net.minecraft.world.entity.vehicle.boat.ChestBoat
+import net.minecraft.world.entity.vehicle.boat.ChestRaft
+import net.minecraft.world.item.Items
+import net.minecraft.world.level.GameType
 import net.minecraft.world.phys.Vec3
 import java.util.UUID
 
 
-val oldPosMap: MutableMap<UUID, Vec3> = mutableMapOf()
+// This isn't level-tied, but I don't forsee any actual problems.
+private val oldPosMap: MutableMap<UUID, Vec3> = mutableMapOf()
+
+// Bamboo is a "ChestRaft" not ChestBoat :sob:
+private val chestBoatTypes: Set<EntityType<out ChestBoat>> = setOf(
+    EntityTypes.ACACIA_CHEST_BOAT,
+    EntityTypes.BIRCH_CHEST_BOAT,
+    EntityTypes.CHERRY_CHEST_BOAT,
+    EntityTypes.JUNGLE_CHEST_BOAT,
+    EntityTypes.MANGROVE_CHEST_BOAT,
+    EntityTypes.OAK_CHEST_BOAT,
+    EntityTypes.POPLAR_CHEST_BOAT,
+    EntityTypes.SPRUCE_CHEST_BOAT,
+    EntityTypes.DARK_OAK_CHEST_BOAT,
+    EntityTypes.PALE_OAK_CHEST_BOAT
+)
+private fun spawnRandomChestBoat(level: ServerLevel, prespawn: (ChestBoat) -> Unit = {}): ChestBoat {
+    return ChestBoat(chestBoatTypes.random(), level){Items.AIR}.also(prespawn)
+        .also(level::addFreshEntityWithPassengers)
+}
+
+private fun handlePlayerFinish(player: ServerPlayer) {
+    player.controlledVehicle?.kill(player.level())
+    player.setGameMode(GameType.SPECTATOR)
+}
+
 
 fun ServerLevel.tickPlayerNodeTracking() {
     val finishedPlayers: MutableCollection<UUID> = mutableListOf()
@@ -53,6 +86,7 @@ fun ServerLevel.tickPlayerNodeTracking() {
             val position = finishedPlayerData.nodePosition + 1u
             if (playerId == finishedPlayer) {
                 player.sendSystemMessage(Component.literal("You finished in position $position!"))
+                handlePlayerFinish(player)
             } else {
                 player.sendSystemMessage(Component.literal("${finishedPlayerData.playerName} finished in position $position!"))
             }
@@ -61,28 +95,44 @@ fun ServerLevel.tickPlayerNodeTracking() {
 }
 
 fun ServerLevel.startRound(mapId: String): Int {
-    val firstNode = this.mapData.getFirstMapNode(mapId) ?: return 1
-    val firstNodeData = firstNode.let(level.mapData::getNode) ?: return 1
+    val mapData = this.mapData.getMapData(mapId) ?: return 1
+    val firstNodeData = level.mapData.getNode(mapData.firstNodeId) ?: return 1
+        
+    if (this.raceData.activeMapKey.isEmpty()) {
+        this.endRound()
+    }
     
-    if (this.raceData.activeMapKey != null) this.endRound()
+    val playerData = this.playerData
+
+    // if not enough start positions
+    if (playerData.activePlayers.size > mapData.startPositions.size) return 2
     this.raceData.setActiveMap(mapId)
     
-    val pos = firstNodeData.pos
-    for (player in this.playerData.activePlayers) {
-        val playerData = this.playerData.getOrInitPlayerData(player).also {
+    val startPositions = mapData.startPositions.iterator()
+    for (player in playerData.activePlayers) {
+        val startPos = startPositions.next()
+        val playerData = playerData.getOrInitPlayerData(player).also {
             it.resetData()
-            it.currNode = firstNode
+            it.currNode = mapData.firstNodeId
         }
     
         val player = this.server.playerList.getPlayer(player) ?: continue
-        player.teleportTo(this, pos.x, pos.y, pos.z, emptySet(), firstNodeData.yawToNext, 0F, false)
+        player.setGameMode(GameType.ADVENTURE)
+        player.teleportTo(this, startPos.x, startPos.y, startPos.z, emptySet(), firstNodeData.yawToNext, 0F, false)
+        spawnRandomChestBoat(this).also{
+            it.teleportTo(this, player.x, player.y, player.z, emptySet(), firstNodeData.yawToNext, 0F, false)
+            player.startRiding(it, true, true)
+        }
     }
-
+    updateTimeDisplay(this)
+    
     return 0
 }
 
 fun ServerLevel.endRound() {
     // clear player data
     this.playerData.activePlayerData.forEach(PlayerData::resetData)
+    this.playerData.activePlayers.mapNotNull(this.server.playerList::getPlayer).forEach(::handlePlayerFinish)
     this.raceData.setInactive()
+    updateTimeDisplay(this)
 }
