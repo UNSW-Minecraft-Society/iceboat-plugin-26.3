@@ -6,29 +6,33 @@ import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback
 import net.minecraft.commands.Commands
 import net.minecraft.commands.arguments.EntityArgument
 import net.minecraft.commands.arguments.UuidArgument
+import net.minecraft.commands.arguments.coordinates.RotationArgument
 import net.minecraft.commands.arguments.coordinates.Vec3Argument
 
 
 const val ROOT_NODE = "iceboat"
 
 internal const val MAP_NAME_ARGUMENT = "map"
-private val MAP_NAME_ARGUMENT_NODE = Commands.argument(MAP_NAME_ARGUMENT, StringArgumentType.word())
+private val MAP_NAME_ARGUMENT_NODE get() = Commands.argument(MAP_NAME_ARGUMENT, StringArgumentType.word())
     .suggests(MapKeySuggestionProvider())
     
 internal const val NODE_ARGUMENT = "node"
-private val NODE_ARGUMENT_NODE = Commands.argument(NODE_ARGUMENT, UuidArgument.uuid())
+private val NODE_ARGUMENT_NODE get() = Commands.argument(NODE_ARGUMENT, UuidArgument.uuid())
 
 internal const val INDEX_ARGUMENT = "index"
-private val INDEX_ARGUMENT_NODE = Commands.argument(INDEX_ARGUMENT, IntegerArgumentType.integer(0))
+private val INDEX_ARGUMENT_NODE get() = Commands.argument(INDEX_ARGUMENT, IntegerArgumentType.integer(0))
 
 internal const val VEC3_POSITION_ARGUMENT = "pos1"
-private val VEC3_POSITION_ARGUMENT_NODE = Commands.argument(VEC3_POSITION_ARGUMENT, Vec3Argument.vec3())
+private val VEC3_POSITION_ARGUMENT_NODE get() = Commands.argument(VEC3_POSITION_ARGUMENT, Vec3Argument.vec3())
+
+internal const val ROTATION_ARGUMENT = "rot"
+private val ROTATION_ARGUMENT_NODE get() = Commands.argument(ROTATION_ARGUMENT, RotationArgument.rotation())
 
 internal const val PLAYER_ARGUMENT = "player"
-private val PLAYER_ARGUMENT_NODE = Commands.argument(PLAYER_ARGUMENT, EntityArgument.player())
+private val PLAYER_ARGUMENT_NODE get() = Commands.argument(PLAYER_ARGUMENT, EntityArgument.player())
 
 internal const val PLAYERS_ARGUMENT = "players"
-private val PLAYERS_ARGUMENT_NODE = Commands.argument(PLAYERS_ARGUMENT, EntityArgument.players())
+private val PLAYERS_ARGUMENT_NODE get() = Commands.argument(PLAYERS_ARGUMENT, EntityArgument.players())
 
 
 fun registerCommands() {
@@ -49,7 +53,9 @@ fun registerCommands() {
             .then(Commands.literal("appendTo")
                 .then(MAP_NAME_ARGUMENT_NODE
                     .then(VEC3_POSITION_ARGUMENT_NODE
-                        .executes(CommandActions::addMapNode)
+                        .then(ROTATION_ARGUMENT_NODE
+                            .executes(CommandActions::addMapNode)
+                        )
                     )
                 )
             )
@@ -57,7 +63,9 @@ fun registerCommands() {
                 .then(MAP_NAME_ARGUMENT_NODE
                     .then(INDEX_ARGUMENT_NODE
                         .then(VEC3_POSITION_ARGUMENT_NODE
-                            .executes(CommandActions::insertByMapIndex)
+                            .then(ROTATION_ARGUMENT_NODE
+                                .executes(CommandActions::insertByMapIndex)
+                            )
                         )
                     )
                 )
@@ -72,7 +80,9 @@ fun registerCommands() {
             .then(Commands.literal("insertAfter")
                 .then(NODE_ARGUMENT_NODE
                     .then(VEC3_POSITION_ARGUMENT_NODE
-                        .executes(CommandActions::insertById)
+                        .then(ROTATION_ARGUMENT_NODE
+                            .executes(CommandActions::insertById)
+                        )
                     )
                 )
             )

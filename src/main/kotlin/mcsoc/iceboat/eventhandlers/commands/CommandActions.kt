@@ -3,6 +3,7 @@ package mcsoc.iceboat.eventhandlers.commands
 import com.mojang.brigadier.arguments.IntegerArgumentType
 import com.mojang.brigadier.arguments.StringArgumentType
 import com.mojang.brigadier.context.CommandContext
+import mcsoc.iceboat.IceboatPlugin
 import mcsoc.iceboat.datatrackers.mapData
 import mcsoc.iceboat.datatrackers.mapdata.NodeData
 import mcsoc.iceboat.datatrackers.playerData
@@ -12,9 +13,11 @@ import mcsoc.iceboat.utils.gameeffects.startRound
 import net.minecraft.commands.CommandSourceStack
 import net.minecraft.commands.arguments.EntityArgument
 import net.minecraft.commands.arguments.UuidArgument
+import net.minecraft.commands.arguments.coordinates.RotationArgument
 import net.minecraft.commands.arguments.coordinates.Vec3Argument
 import net.minecraft.network.chat.Component
 import net.minecraft.world.entity.player.Player
+import net.minecraft.world.phys.Vec3
 
 
 private val CANNOT_MODIFY_MAP: (String) -> Component = {Component.literal("Cannot modify active map '$it'!")}
@@ -29,6 +32,20 @@ private fun removeMap(source: CommandSourceStack, mapId: String): Int {
     source.sendSuccess({Component.literal("Removed all nodes from map '$mapId'")}, true)
     return 1
 }
+
+private fun nodeFromArguments(ctx: CommandContext<CommandSourceStack>): NodeData {
+    return try {
+        NodeData(
+            Vec3Argument.getVec3(ctx, VEC3_POSITION_ARGUMENT), 
+            RotationArgument.getRotation(ctx, ROTATION_ARGUMENT)
+                .getRotation(ctx.source).y
+        )
+    } catch (e: Exception) {
+        IceboatPlugin.LOGGER.error("nodeFromArguments: ", e)
+        NodeData(Vec3.ZERO)
+    }
+} 
+
 
 object CommandActions {
     fun listMaps(ctx: CommandContext<CommandSourceStack>): Int {
@@ -58,7 +75,7 @@ object CommandActions {
         
         source.level.mapData.appendNode(
             StringArgumentType.getString(ctx, MAP_NAME_ARGUMENT),
-            NodeData(Vec3Argument.getVec3(ctx, VEC3_POSITION_ARGUMENT), source.rotation.y)
+            nodeFromArguments(ctx)
         )
         
         source.sendSuccess({Component.literal("Appended node to map '$mapId.'")}, true)
@@ -70,7 +87,7 @@ object CommandActions {
         val nodeId = UuidArgument.getUuid(ctx, NODE_ARGUMENT)
         source.level.mapData.insertNodeAfter(
             nodeId,
-            NodeData(Vec3Argument.getVec3(ctx, VEC3_POSITION_ARGUMENT), source.rotation.y)
+            nodeFromArguments(ctx)
         )
         
         source.sendSuccess({Component.literal("Added node after node $nodeId.")}, true)
@@ -87,7 +104,7 @@ object CommandActions {
         val index = IntegerArgumentType.getInteger(ctx, INDEX_ARGUMENT).toUInt()
         source.level.mapData.insertNodeAfter(
             mapId,
-            NodeData(Vec3Argument.getVec3(ctx, VEC3_POSITION_ARGUMENT), source.rotation.y),
+            nodeFromArguments(ctx),
             index
         )
         
