@@ -1,6 +1,7 @@
 package mcsoc.iceboat.datatrackers.timer
 
 import com.mojang.serialization.Codec
+import com.mojang.serialization.MapCodec
 import com.mojang.serialization.codecs.RecordCodecBuilder
 import mcsoc.iceboat.datatrackers.LevelDataType
 import mcsoc.iceboat.datatrackers.LevelTiedData
@@ -13,7 +14,7 @@ import kotlin.time.TimeSource
 class GameTimer() : LevelTiedData(), TickHolder {
     override fun getType(): LevelDataType<*> = LevelDataType.GameClock
     companion object {
-        val CODEC: Codec<GameTimer> = RecordCodecBuilder.create{it.group(
+        val CODEC: MapCodec<GameTimer> = RecordCodecBuilder.mapCodec{it.group(
             Duration.CODEC.fieldOf("time").forGetter(GameTimer::time)
         ).apply(it, ::GameTimer)}
     }
