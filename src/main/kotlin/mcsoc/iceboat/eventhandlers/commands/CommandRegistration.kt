@@ -70,6 +70,13 @@ fun registerCommands() {
                     )
                 )
             )
+            .then(Commands.literal("addStartPos")
+                .then(MAP_NAME_ARGUMENT_NODE
+                    .then(VEC3_POSITION_ARGUMENT_NODE
+                        .executes(CommandActions::addStartPos)
+                    )
+                )
+            )
             .then(Commands.literal("clear")
                 .then(MAP_NAME_ARGUMENT_NODE
                     .executes(CommandActions::clearMap)

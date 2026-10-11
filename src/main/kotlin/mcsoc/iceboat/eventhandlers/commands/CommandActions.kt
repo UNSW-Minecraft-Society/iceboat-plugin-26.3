@@ -112,6 +112,13 @@ object CommandActions {
         return 1
     }
     
+    fun addStartPos(ctx: CommandContext<CommandSourceStack>): Int {
+        val mapId = StringArgumentType.getString(ctx, MAP_NAME_ARGUMENT)
+        ctx.source.level.mapData.getMapData(mapId)?.startPositions?.add(Vec3Argument.getVec3(ctx, VEC3_POSITION_ARGUMENT))
+        ctx.source.sendSuccess({Component.literal("Added start position to map '$mapId'.")}, true)
+        return 1
+    }
+    
     fun clearMap(ctx: CommandContext<CommandSourceStack>): Int {
         val source = ctx.source
         val mapId = StringArgumentType.getString(ctx, MAP_NAME_ARGUMENT)
@@ -129,13 +136,21 @@ object CommandActions {
         val source = ctx.source
         val mapId = StringArgumentType.getString(ctx, MAP_NAME_ARGUMENT)
         return when (source.level.startRound(mapId)) {
+            0 -> {
+                source.sendSuccess({Component.literal("Started a new round on map '$mapId.'")}, true)
+                1
+            }
             1 -> {
                 source.sendFailure(Component.literal("Failed to start game: Map with key '$mapId' doesn't exist!"))
                 0
             }
+            2 -> {
+                source.sendFailure(Component.literal("Failed to start game: Map '$mapId' doesn't have enough start positions!"))
+                0
+            }
             else -> {
-                source.sendSuccess({Component.literal("Started a new round on map '$mapId.'")}, true)
-                1
+                source.sendFailure(Component.literal("Failed to start game: Reason Not Given!"))
+                0
             }
         }
     }
