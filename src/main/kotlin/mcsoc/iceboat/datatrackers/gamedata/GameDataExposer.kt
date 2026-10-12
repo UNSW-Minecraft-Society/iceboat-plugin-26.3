@@ -9,18 +9,23 @@ import kotlin.time.Duration
 
 
 data class LapProgress(
-    var fastestPlayer: com.mojang.datafixers.util.Pair<UUID, Duration>? = null,
+    var fastestPlayer: Pair<UUID, Duration>? = null,
     var numPassed: UInt = 0u
 ) : Comparable<Duration> {
     companion object {
+        private val PAIR_CODEC: Codec<Pair<UUID, Duration>> = RecordCodecBuilder.create{it.group(
+            UUIDUtil.CODEC.fieldOf("uuid").forGetter(Pair<UUID, Duration>::first),
+            Duration.CODEC.fieldOf("time").forGetter(Pair<UUID, Duration>::second)
+        ).apply(it, ::Pair)}
+        
         val CODEC: Codec<LapProgress> = RecordCodecBuilder.create{it.group(
-            Codec.pair(UUIDUtil.CODEC, Duration.CODEC).fieldOf("fastestPlayer").forGetter(LapProgress::fastestPlayer),
+            PAIR_CODEC.fieldOf("fastestPlayer").forGetter(LapProgress::fastestPlayer),
             UInt.CODEC.fieldOf("numPassed").forGetter(LapProgress::numPassed),
         ).apply(it, ::LapProgress)}
     }
     
     fun setFastestPlayer(fastestPlayer: UUID, fastestTime: Duration) {
-        this.fastestPlayer = com.mojang.datafixers.util.Pair(fastestPlayer, fastestTime)
+        this.fastestPlayer = Pair(fastestPlayer, fastestTime)
     }
     
     // return greater if no time has been set yet

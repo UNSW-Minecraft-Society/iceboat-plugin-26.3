@@ -26,7 +26,7 @@ class MapDataTracker() : LevelTiedData(), MapDataHolder {
             Codec.unboundedMap(
                 Codec.STRING, 
                 MapData.CODEC
-            )   
+            )
                 .optionalFieldOf("maps", mapOf())
                 .forGetter(MapDataTracker::mapDataMap)
         ).apply(it, ::MapDataTracker)}

@@ -12,6 +12,7 @@ import org.joml.Matrix2d
 import org.joml.Vector2d
 import org.joml.minus
 import org.joml.times
+import java.util.Optional
 import java.util.UUID
 import kotlin.math.PI
 import kotlin.math.sqrt
@@ -44,24 +45,32 @@ data class NodeData(
     val index: UInt
         get() = internal_index
     internal var next: UUID by Delegates.notNull<UUID>()
+    // this literally should only error if saving occurs *during* node creation (??)
+    private val nextOptional get() = try {
+            Optional.of(next)
+        } catch (e: IllegalStateException) {
+            Optional.empty()
+        }
         
     companion object {
         const val DETECTION_RANGE_SQ = 25.0
         val CODEC: Codec<NodeData> = RecordCodecBuilder.create{it.group(
             Vec3.CODEC.fieldOf("position").forGetter(NodeData::pos),
             Codec.FLOAT.fieldOf("yaw").forGetter(NodeData::yawToNext),
+            Codec.DOUBLE.fieldOf("range").forGetter(NodeData::range),
             UInt.CODEC.fieldOf("index").forGetter(NodeData::internal_index),
-            UUIDUtil.CODEC.fieldOf("next").forGetter(NodeData::next),
+            UUIDUtil.CODEC.optionalFieldOf("next").forGetter(NodeData::nextOptional),
         ).apply(it, ::NodeData)}
     }
     private constructor(
         pos: Vec3,
         yawToNext: Float,
+        range: Double,
         index: UInt,
-        next: UUID
-    ) : this(pos, yawToNext) {
+        next: Optional<UUID>
+    ) : this(pos, yawToNext, range) {
         this.internal_index = index
-        this.next = next
+        if (next.isPresent) this.next = next.get()
     }
     
     // Algorithm derived by Smitology
