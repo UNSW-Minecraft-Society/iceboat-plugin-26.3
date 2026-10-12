@@ -145,11 +145,15 @@ object CommandActions {
                 0
             }
             2 -> {
+                source.sendFailure(Component.literal("Failed to start game: First node of map '$mapId' does not exist!"))
+                0
+            }
+            3 -> {
                 source.sendFailure(Component.literal("Failed to start game: Map '$mapId' doesn't have enough start positions!"))
                 0
             }
             else -> {
-                source.sendFailure(Component.literal("Failed to start game: Reason Not Given!"))
+                source.sendFailure(Component.literal("Failed to start game: Reason Not Defined!"))
                 0
             }
         }

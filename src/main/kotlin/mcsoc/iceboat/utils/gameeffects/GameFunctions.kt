@@ -122,9 +122,15 @@ fun ServerLevel.tickPlayerNodeTracking() {
     }
 }
 
+/* Codes:
+ *  0 - Success
+ *  1 - Map key does not exist
+ *  2 - First map node does not exist
+ *  3 - Not enough start positions
+ */
 fun ServerLevel.startRound(mapId: String): Int {
     val mapData = this.mapData.getMapData(mapId) ?: return 1
-    val firstNodeData = level.mapData.getNode(mapData.firstNodeId) ?: return 1
+    val firstNodeData = level.mapData.getNode(mapData.firstNodeId) ?: return 2
         
     if (this.raceData.activeMapKey.isEmpty()) {
         this.endRound()
@@ -133,7 +139,7 @@ fun ServerLevel.startRound(mapId: String): Int {
     val playerData = this.playerData
 
     // if not enough start positions
-    if (playerData.activePlayers.size > mapData.startPositions.size) return 2
+    if (playerData.activePlayers.size > mapData.startPositions.size) return 3
     this.raceData.setActiveMap(mapId)
     
     val startPositions = mapData.startPositions.iterator()
