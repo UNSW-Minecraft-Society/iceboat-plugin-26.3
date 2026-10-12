@@ -87,17 +87,33 @@ fun ServerLevel.tickPlayerNodeTracking() {
                 }
             }
             
+            // TODO sum last 3 deltas instead of just last
             val velocity = it.last().subtract(player.position()).length().toBigDecimal().setScale(3, RoundingMode.FLOOR)
+            val timeString = playerData.timer.time.toComponents{ minutes, seconds, nanos -> 
+                "$minutes".padStart(2, '0') + ":" + "$seconds".padStart(2, '0') + ":" + "$nanos".padStart(2, '0').substring(0 until 2)
+            }
+            
             player.connection.send(ClientboundSetActionBarTextPacket(
-                Component.literal("Velocity: ").append(
-                    Component.literal("$velocity".padEnd(5)).withStyle(Style.EMPTY
-                    // monospaced font
-                    .withFont(FontDescription.Resource(Identifier.withDefaultNamespace("uniform")))
-                    .withColor(TextColor.GRAY)
-                    .withBold(true)
-                    .withUnderlined(true)
-                    )
-                )
+                Component.empty()
+                    .append(Component.literal("Velocity: ").append(
+                        Component.literal("$velocity".padEnd(5)).withStyle(Style.EMPTY
+                        // monospaced font
+                        .withFont(FontDescription.Resource(Identifier.withDefaultNamespace("uniform")))
+                        .withColor(TextColor.AQUA)
+                        .withBold(true)
+                        .withUnderlined(true)
+                        )
+                    ))
+                    .append(Component.literal(" | "))
+                    .append(Component.literal("Time: ").append(
+                        Component.literal(timeString).withStyle(Style.EMPTY
+                        // monospaced font
+                        .withFont(FontDescription.Resource(Identifier.withDefaultNamespace("uniform")))
+                        .withColor(TextColor.GREEN)
+                        .withBold(true)
+                        .withUnderlined(true)
+                        )
+                    ))
             ))
         } ?: run { oldPosMap[playerId] = ArrayDeque(3) }
         oldPosMap[playerId]?.let{
