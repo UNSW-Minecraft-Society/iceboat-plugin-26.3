@@ -1,6 +1,7 @@
 package mcsoc.iceboat.tests
 
 import mcsoc.iceboat.IceboatPlugin
+import mcsoc.iceboat.datatrackers.mapData
 import mcsoc.iceboat.datatrackers.mapdata.NodeData
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents
 import net.minecraft.server.level.ServerLevel
@@ -13,6 +14,7 @@ fun registerCheckzoneTests() {
             .also(::runCheckzoneTest)
             // .also(::runNodeInsertionTest)
             // .also{ IceboatPlugin.LOGGER.info("Tests Complete. See you next time!") }
+            .also{ l -> l.mapData.getMapKeys().forEach(l.mapData::clearMap) }
     }
 }
 

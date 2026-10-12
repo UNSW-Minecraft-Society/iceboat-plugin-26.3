@@ -4,10 +4,8 @@ import mcsoc.iceboat.IceboatPlugin
 import mcsoc.iceboat.datatrackers.mapData
 import mcsoc.iceboat.datatrackers.mapdata.NodeData
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents
-import net.minecraft.server.MinecraftServer
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.phys.Vec3
-import kotlin.system.exitProcess
 
 
 fun registerNodeTests() {
@@ -16,6 +14,7 @@ fun registerNodeTests() {
             // .also(::runNodeIterableAccessTest)
             // .also(::runNodeInsertionTest)
             // .also{ IceboatPlugin.LOGGER.info("Tests Complete. See you next time!") }
+            .also{ l -> l.mapData.getMapKeys().forEach(l.mapData::clearMap) }
     }
 }
 
