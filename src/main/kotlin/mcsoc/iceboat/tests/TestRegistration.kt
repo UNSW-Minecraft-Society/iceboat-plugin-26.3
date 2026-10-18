@@ -17,3 +17,7 @@ fun setupNodeTestData(level: ServerLevel) {
     mapData.initMap("map2", Vec3(0.0, 0.0, 0.0))
     mapData.initMap("map3", Vec3(0.0, 0.0, 0.0))
 }
+
+fun clearNodeTestData(level: ServerLevel) {
+    for (map in level.mapData.getMapKeys().toList()) level.mapData.clearMap(map)
+}

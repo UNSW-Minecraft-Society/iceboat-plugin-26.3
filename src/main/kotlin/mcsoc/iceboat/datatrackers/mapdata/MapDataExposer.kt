@@ -75,9 +75,6 @@ data class NodeData(
     
     // Algorithm derived by Smitology
     fun passedBy(before: Vec3, after: Vec3): Boolean {
-        // IceboatPlugin.LOGGER.info("before: {}", before)
-        // IceboatPlugin.LOGGER.info("pos: {}", pos)
-        // IceboatPlugin.LOGGER.info("after: {}", after)
         val delta = after.subtract(before)
         
         return (getCheckMatrix(before) * Vector2d(delta.x, delta.z))
@@ -88,7 +85,6 @@ data class NodeData(
         "Node $internal_index:\n" +
         "             pos: ${pos.format}\n" +
         "     yaw to next: $yawToNext\n" +
-        // "  fastest player: ${fastestPlayer}\n" +
         "       next node: $next"
 }
 

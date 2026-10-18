@@ -6,11 +6,14 @@ import mcsoc.iceboat.datatrackers.playerData
 import mcsoc.iceboat.datatrackers.playerdata.PlayerData
 import mcsoc.iceboat.datatrackers.raceData
 import mcsoc.iceboat.utils.format
+import net.minecraft.core.BlockPos
 import net.minecraft.network.chat.Component
 import net.minecraft.network.chat.FontDescription
 import net.minecraft.network.chat.MutableComponent
 import net.minecraft.network.chat.Style
 import net.minecraft.network.chat.TextColor
+import net.minecraft.network.protocol.game.ClientboundBlockEventPacket
+import net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket
 import net.minecraft.network.protocol.game.ClientboundSetActionBarTextPacket
 import net.minecraft.resources.Identifier
 import net.minecraft.server.level.ServerLevel
@@ -22,6 +25,8 @@ import net.minecraft.world.entity.vehicle.boat.ChestBoat
 import net.minecraft.world.entity.vehicle.boat.ChestRaft
 import net.minecraft.world.item.Items
 import net.minecraft.world.level.GameType
+import net.minecraft.world.level.block.BeaconBlock
+import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.phys.Vec3
 import java.math.RoundingMode
 import java.util.Queue
@@ -85,6 +90,13 @@ fun ServerLevel.tickPlayerNodeTracking() {
                     playerData.timer.reset()
                     playerData.currNode = next
                 }
+            } else {
+                // beacon beam at next checkpoint?
+                player.connection.send(ClientboundBlockEventPacket(
+                    BlockPos.containing(nextNode.pos),
+                    Blocks.END_GATEWAY,
+                    1, 0
+                ))
             }
             
             // TODO sum last 3 deltas instead of just last

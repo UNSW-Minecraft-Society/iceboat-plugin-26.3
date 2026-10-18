@@ -14,7 +14,7 @@ fun registerNodeTests() {
             // .also(::runNodeIterableAccessTest)
             // .also(::runNodeInsertionTest)
             // .also{ IceboatPlugin.LOGGER.info("Tests Complete. See you next time!") }
-            .also{ l -> l.mapData.getMapKeys().forEach(l.mapData::clearMap) }
+            .also(::clearNodeTestData)
     }
 }
 
