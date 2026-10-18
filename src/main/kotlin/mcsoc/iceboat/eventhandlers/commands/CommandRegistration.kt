@@ -1,5 +1,6 @@
 package mcsoc.iceboat.eventhandlers.commands
 
+import com.mojang.brigadier.arguments.DoubleArgumentType
 import com.mojang.brigadier.arguments.IntegerArgumentType
 import com.mojang.brigadier.arguments.StringArgumentType
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback
@@ -28,6 +29,9 @@ private val VEC3_POSITION_ARGUMENT_NODE get() = Commands.argument(VEC3_POSITION_
 internal const val ROTATION_ARGUMENT = "rot"
 private val ROTATION_ARGUMENT_NODE get() = Commands.argument(ROTATION_ARGUMENT, RotationArgument.rotation())
 
+internal const val LENGTH_ARGUMENT = "length"
+private val LENGTH_ARGUMENT_NODE get() = Commands.argument(LENGTH_ARGUMENT, DoubleArgumentType.doubleArg(0.0))
+
 internal const val PLAYER_ARGUMENT = "player"
 private val PLAYER_ARGUMENT_NODE get() = Commands.argument(PLAYER_ARGUMENT, EntityArgument.player())
 
@@ -54,7 +58,9 @@ fun registerCommands() {
                 .then(MAP_NAME_ARGUMENT_NODE
                     .then(VEC3_POSITION_ARGUMENT_NODE
                         .then(ROTATION_ARGUMENT_NODE
-                            .executes(CommandActions::addMapNode)
+                            .then(LENGTH_ARGUMENT_NODE
+                                .executes(CommandActions::addMapNode)
+                            )
                         )
                     )
                 )
@@ -64,7 +70,9 @@ fun registerCommands() {
                     .then(INDEX_ARGUMENT_NODE
                         .then(VEC3_POSITION_ARGUMENT_NODE
                             .then(ROTATION_ARGUMENT_NODE
-                                .executes(CommandActions::insertByMapIndex)
+                                .then(LENGTH_ARGUMENT_NODE
+                                    .executes(CommandActions::insertByMapIndex)
+                                )
                             )
                         )
                     )
@@ -88,7 +96,9 @@ fun registerCommands() {
                 .then(NODE_ARGUMENT_NODE
                     .then(VEC3_POSITION_ARGUMENT_NODE
                         .then(ROTATION_ARGUMENT_NODE
-                            .executes(CommandActions::insertById)
+                            .then(LENGTH_ARGUMENT_NODE
+                                .executes(CommandActions::insertById)
+                            )
                         )
                     )
                 )

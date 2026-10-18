@@ -1,5 +1,6 @@
 package mcsoc.iceboat.eventhandlers.commands
 
+import com.mojang.brigadier.arguments.DoubleArgumentType
 import com.mojang.brigadier.arguments.IntegerArgumentType
 import com.mojang.brigadier.arguments.StringArgumentType
 import com.mojang.brigadier.context.CommandContext
@@ -38,7 +39,8 @@ private fun nodeFromArguments(ctx: CommandContext<CommandSourceStack>): NodeData
         NodeData(
             Vec3Argument.getVec3(ctx, VEC3_POSITION_ARGUMENT), 
             RotationArgument.getRotation(ctx, ROTATION_ARGUMENT)
-                .getRotation(ctx.source).y
+                .getRotation(ctx.source).y,
+            DoubleArgumentType.getDouble(ctx, LENGTH_ARGUMENT) / 2
         )
     } catch (e: Exception) {
         IceboatPlugin.LOGGER.error("nodeFromArguments: ", e)
