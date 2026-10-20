@@ -28,12 +28,14 @@ data class NodeData(
 ) {
     private val c1: Vector2d
     private val c2: Vector2d
+    val ends: Pair<Vec3, Vec3>
     init {
         val unrotated = Vec3.Z_AXIS.scale(range)
         val p1 = unrotated.yRot(-yawToNextRadians + FLOAT_PI / 2)
         val p2 = unrotated.yRot(-yawToNextRadians - FLOAT_PI / 2)
         c1 = Vector2d(p1.x, p1.z)
         c2 = Vector2d(p2.x, p2.z)
+        ends = Pair(pos.add(c1.x, 0.0, c1.y), pos.add(c2.x, 0.0, c2.y))
     }
     private fun getCheckMatrix(before: Vec3): Matrix2d {
         val before = Vector2d(before.x - pos.x, before.z - pos.z)
@@ -181,7 +183,6 @@ internal interface MapDataHolder : MapDataExposer {
             nextNode.unlinkChain()
         }
         node_map.remove(this.next)
-        IceboatPlugin.LOGGER.info("\"unlinkChain\": forgot node ${nextNode.index}")
     }
     
     private fun NodeData.propogateIndex() {

@@ -7,6 +7,8 @@ import mcsoc.iceboat.datatrackers.playerdata.PlayerData
 import mcsoc.iceboat.datatrackers.raceData
 import mcsoc.iceboat.utils.format
 import net.minecraft.core.BlockPos
+import net.minecraft.core.particles.ParticleOptions
+import net.minecraft.core.particles.ParticleTypes
 import net.minecraft.network.chat.Component
 import net.minecraft.network.chat.FontDescription
 import net.minecraft.network.chat.MutableComponent
@@ -14,10 +16,12 @@ import net.minecraft.network.chat.Style
 import net.minecraft.network.chat.TextColor
 import net.minecraft.network.protocol.game.ClientboundBlockEventPacket
 import net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket
+import net.minecraft.network.protocol.game.ClientboundLevelParticlesPacket
 import net.minecraft.network.protocol.game.ClientboundSetActionBarTextPacket
 import net.minecraft.resources.Identifier
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
+import net.minecraft.util.Mth
 import net.minecraft.world.entity.EntityType
 import net.minecraft.world.entity.EntityTypes
 import net.minecraft.world.entity.vehicle.boat.AbstractChestBoat
@@ -92,15 +96,26 @@ fun ServerLevel.tickPlayerNodeTracking() {
                 }
             } else {
                 // beacon beam at next checkpoint?
-                player.connection.send(ClientboundBlockEventPacket(
-                    BlockPos.containing(nextNode.pos),
-                    Blocks.END_GATEWAY,
-                    1, 0
-                ))
+                val range = nextNode.ends
+                for (p in 0..100 step 5) {
+                    val pos = Mth.lerp(p.toDouble() / 100.0, range.first, range.second)
+                    player.connection.send(ClientboundLevelParticlesPacket(
+                        ParticleTypes.CRIT, true, true,
+                        pos.x, pos.y + 0.5, pos.z,
+                        0.1F, 0.1F, 0.1F,
+                        0.0F, 2
+                    ))
+                    player.connection.send(ClientboundLevelParticlesPacket(
+                        ParticleTypes.END_ROD, true, true,
+                        pos.x, pos.y + 0.5, pos.z,
+                        0.1F, 0.1F, 0.1F,
+                        0.0F, 2
+                    ))
+                }
             }
             
             // TODO sum last 3 deltas instead of just last
-            val velocity = it.last().subtract(player.position()).length().toBigDecimal().setScale(3, RoundingMode.FLOOR)
+            val velocity = (it.last().subtract(player.position()).length() * 72.0).toBigDecimal().setScale(3, RoundingMode.FLOOR)
             val timeString = playerData.timer.time.toComponents{ minutes, seconds, nanos -> 
                 "$minutes".padStart(2, '0') + ":" + "$seconds".padStart(2, '0') + ":" + "$nanos".padStart(2, '0').substring(0 until 2)
             }
@@ -115,7 +130,8 @@ fun ServerLevel.tickPlayerNodeTracking() {
                         .withBold(true)
                         .withUnderlined(true)
                         )
-                    ))
+                    ).append(" km/h")
+                    )
                     .append(Component.literal(" | "))
                     .append(Component.literal("Time: ").append(
                         Component.literal(timeString).withStyle(Style.EMPTY
@@ -170,7 +186,7 @@ fun ServerLevel.startRound(mapId: String): Int {
     if (playerData.activePlayers.size > mapData.startPositions.size) return 3
     this.raceData.setActiveMap(mapId)
     
-    val startPositions = mapData.startPositions.iterator()
+    val startPositions = mapData.startPositions.shuffled().iterator()
     for (player in playerData.activePlayers) {
         val startPos = startPositions.next()
         val playerData = playerData.getOrInitPlayerData(player).also {
