@@ -115,15 +115,15 @@ fun ServerLevel.tickPlayerNodeTracking() {
             }
             
             // TODO sum last 3 deltas instead of just last
-            val velocity = (it.last().subtract(player.position()).length() * 72.0).toBigDecimal().setScale(3, RoundingMode.FLOOR)
+            val velocity = (it.last().subtract(player.position()).length() * 72.0).toBigDecimal().setScale(3, RoundingMode.FLOOR).toString().substring(0 until 5)
             val timeString = playerData.timer.time.toComponents{ minutes, seconds, nanos -> 
                 "$minutes".padStart(2, '0') + ":" + "$seconds".padStart(2, '0') + ":" + "$nanos".padStart(2, '0').substring(0 until 2)
             }
             
             player.connection.send(ClientboundSetActionBarTextPacket(
                 Component.empty()
-                    .append(Component.literal("Velocity: ").append(
-                        Component.literal("$velocity".padEnd(5)).withStyle(Style.EMPTY
+                    .append(Component.literal("Speed: ").append(
+                        Component.literal(velocity.padEnd(5)).withStyle(Style.EMPTY
                         // monospaced font
                         .withFont(FontDescription.Resource(Identifier.withDefaultNamespace("uniform")))
                         .withColor(TextColor.AQUA)
