@@ -19,5 +19,5 @@ fun setupNodeTestData(level: ServerLevel) {
 }
 
 fun clearNodeTestData(level: ServerLevel) {
-    for (map in level.mapData.getMapKeys().toList()) level.mapData.clearMap(map)
+    for (map in listOf("map1", "map2", "map3")) level.mapData.clearMap(map)
 }
