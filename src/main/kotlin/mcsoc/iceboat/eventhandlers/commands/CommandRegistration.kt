@@ -1,6 +1,7 @@
 package mcsoc.iceboat.eventhandlers.commands
 
 import com.mojang.brigadier.arguments.DoubleArgumentType
+import com.mojang.brigadier.arguments.FloatArgumentType
 import com.mojang.brigadier.arguments.IntegerArgumentType
 import com.mojang.brigadier.arguments.StringArgumentType
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback
@@ -27,7 +28,7 @@ internal const val VEC3_POSITION_ARGUMENT = "pos1"
 private val VEC3_POSITION_ARGUMENT_NODE get() = Commands.argument(VEC3_POSITION_ARGUMENT, Vec3Argument.vec3())
 
 internal const val ROTATION_ARGUMENT = "rot"
-private val ROTATION_ARGUMENT_NODE get() = Commands.argument(ROTATION_ARGUMENT, RotationArgument.rotation())
+private val ROTATION_ARGUMENT_NODE get() = Commands.argument(ROTATION_ARGUMENT, FloatArgumentType.floatArg(-180F, 180F))
 
 internal const val LENGTH_ARGUMENT = "length"
 private val LENGTH_ARGUMENT_NODE get() = Commands.argument(LENGTH_ARGUMENT, DoubleArgumentType.doubleArg(0.0))
