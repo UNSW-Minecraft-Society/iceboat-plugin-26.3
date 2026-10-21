@@ -11,6 +11,7 @@ import org.slf4j.LoggerFactory
 
 object IceboatPlugin : ModInitializer {
 	const val MOD_ID: String = "iceboat-plugin"
+	@JvmField
 	val LOGGER: Logger = LoggerFactory.getLogger(MOD_ID)
 
 	override fun onInitialize() {

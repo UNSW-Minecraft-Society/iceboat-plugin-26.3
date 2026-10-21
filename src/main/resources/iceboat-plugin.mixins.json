@@ -3,7 +3,8 @@
 	"package": "mcsoc.iceboat.mixin",
 	"compatibilityLevel": "JAVA_25",
 	"mixins": [
-		"ExampleMixin"
+		"EntityTickMixin",
+		"AbstractBoatTickMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1
