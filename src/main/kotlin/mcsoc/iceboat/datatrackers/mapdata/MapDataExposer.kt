@@ -44,8 +44,10 @@ data class NodeData(
 
     private val yawToNextRadians get() = ((yawToNext * PI) / 180).toFloat()
     internal var internal_index by Delegates.notNull<UInt>()
-    val index: UInt
-        get() = internal_index
+    val index: UInt 
+            get() = internal_index
+    val isFirst: Boolean 
+            get() = index == 0u
     internal var next: UUID by Delegates.notNull<UUID>()
     // this literally should only error if saving occurs *during* node creation (??)
     private val nextOptional get() = try {
@@ -131,7 +133,7 @@ interface MapDataExposer {
         do {
             print(node)
             node = node.next()
-        } while (node.index != 0u)
+        } while (!node.isFirst)
     }
     
     fun getAllMapNodes(id: String): Iterable<Pair<UUID, NodeData>> {
@@ -172,14 +174,14 @@ internal interface MapDataHolder : MapDataExposer {
     
     override fun appendNode(id: String, new: NodeData): UUID {
         var node = getFirstMapNodeInternal(id) ?: return insertNodeAfter(id, new)
-        while (node.next().index != 0u) node = node.next()
+        while (!node.next().isFirst) node = node.next()
         
         return node.insertNodeAfter(new)
     }
     
     private fun NodeData.unlinkChain() {
         val nextNode = this.next()
-        if (nextNode.index != 0u) {
+        if (!nextNode.isFirst) {
             nextNode.unlinkChain()
         }
         node_map.remove(this.next)
@@ -187,7 +189,7 @@ internal interface MapDataHolder : MapDataExposer {
     
     private fun NodeData.propogateIndex() {
         val next = this.next() 
-        if (next.index > this.index) {
+        if (!next.isFirst) {
             next.internal_index = this.index + 1u
             next.propogateIndex()
         }
@@ -222,7 +224,7 @@ internal interface MapDataHolder : MapDataExposer {
             mapHead?.let{
                 var node = it
                 // seek to end of node chain
-                while (it.next().index != 0u) node = node.next()
+                while (!it.next().isFirst) node = node.next()
                 node.next = newNodeId
             } ?: run { new.next = newNodeId }
             return newNodeId

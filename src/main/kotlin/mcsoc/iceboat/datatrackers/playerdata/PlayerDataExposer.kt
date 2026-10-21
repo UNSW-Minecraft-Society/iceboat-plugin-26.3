@@ -85,17 +85,17 @@ interface PlayerDataExposer {
     val activePlayerData: Iterable<PlayerData>
         get() = player_data.filter{it.key in activePlayers}.values
     
-    fun trackPlayerTimeAtNode(player: UUID, node: UUID, index: UInt, time: Duration): Boolean
+    fun trackPlayerTimeAtNode(player: UUID, node: UUID, isFirstNode: Boolean, time: Duration): Boolean
 }
 
 internal interface PlayerDataHolder : PlayerDataExposer {
     override val player_data: MutableMap<UUID, PlayerData>
     override fun getOrInitPlayerData(player: UUID, playerName: String): PlayerData = player_data.getOrPut(player){PlayerData(playerName)}
     
-    override fun trackPlayerTimeAtNode(player: UUID, node: UUID, index: UInt, time: Duration): Boolean {
+    override fun trackPlayerTimeAtNode(player: UUID, node: UUID, isFirstNode: Boolean, time: Duration): Boolean {
         return player_data[player]?.let {
             // if first map node
-            if (index == 0u) {
+            if (isFirstNode) {
                 it.lapsCompleted++
             } 
             it.nodesPassed++
