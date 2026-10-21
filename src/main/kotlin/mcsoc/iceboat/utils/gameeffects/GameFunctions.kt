@@ -2,6 +2,7 @@ package mcsoc.iceboat.utils.gameeffects
 
 import mcsoc.iceboat.IceboatPlugin
 import mcsoc.iceboat.datatrackers.mapData
+import mcsoc.iceboat.datatrackers.mapdata.NodeData
 import mcsoc.iceboat.datatrackers.playerData
 import mcsoc.iceboat.datatrackers.playerdata.PlayerData
 import mcsoc.iceboat.datatrackers.raceData
@@ -64,6 +65,25 @@ private fun handlePlayerFinish(player: ServerPlayer) {
 }
 
 
+fun ServerPlayer.displayNextCheckpoint(nextNode: NodeData) {
+    val range = nextNode.ends
+    for (p in 0..100 step 5) {
+        val pos = Mth.lerp(p.toDouble() / 100.0, range.first, range.second)
+        this.connection.send(ClientboundLevelParticlesPacket(
+            ParticleTypes.CRIT, true, true,
+            pos.x, pos.y + 0.1, pos.z,
+            0.1F, 0.1F, 0.1F,
+            0.0F, 2
+        ))
+        // this.connection.send(ClientboundLevelParticlesPacket(
+        //     ParticleTypes.HAPPY_VILLAGER, true, true,
+        //     pos.x, pos.y, pos.z,
+        //     0.1F, 0.1F, 0.1F,
+        //     0.0F, 2
+        // ))
+    }
+}
+
 fun ServerLevel.tickPlayerNodeTracking() {
     val finishedPlayers: MutableCollection<UUID> = mutableListOf()
     for (playerId in level.playerData.activePlayers) {
@@ -96,22 +116,7 @@ fun ServerLevel.tickPlayerNodeTracking() {
                 }
             } else {
                 // beacon beam at next checkpoint?
-                val range = nextNode.ends
-                for (p in 0..100 step 5) {
-                    val pos = Mth.lerp(p.toDouble() / 100.0, range.first, range.second)
-                    player.connection.send(ClientboundLevelParticlesPacket(
-                        ParticleTypes.CRIT, true, true,
-                        pos.x, pos.y + 0.5, pos.z,
-                        0.1F, 0.1F, 0.1F,
-                        0.0F, 2
-                    ))
-                    player.connection.send(ClientboundLevelParticlesPacket(
-                        ParticleTypes.END_ROD, true, true,
-                        pos.x, pos.y + 0.5, pos.z,
-                        0.1F, 0.1F, 0.1F,
-                        0.0F, 2
-                    ))
-                }
+                player.displayNextCheckpoint(nextNode)
             }
             
             // TODO sum last 3 deltas instead of just last
@@ -186,8 +191,8 @@ fun ServerLevel.startRound(mapId: String): Int {
     if (playerData.activePlayers.size > mapData.startPositions.size) return 3
     this.raceData.setActiveMap(mapId)
     
-    val startPositions = mapData.startPositions.shuffled().iterator()
-    for (player in playerData.activePlayers) {
+    val startPositions = mapData.startPositions.iterator()
+    for (player in playerData.activePlayers.shuffled()) {
         val startPos = startPositions.next()
         val playerData = playerData.getOrInitPlayerData(player).also {
             it.resetData()
@@ -200,6 +205,9 @@ fun ServerLevel.startRound(mapId: String): Int {
         spawnRandomChestBoat(this).also{
             it.teleportTo(this, player.x, player.y, player.z, emptySet(), firstNodeData.yawToNext, 0F, false)
             player.startRiding(it, true, true)
+            player.yRot = firstNodeData.yawToNext
+            player.setYHeadRot(firstNodeData.yawToNext)
+            player.setYBodyRot(firstNodeData.yawToNext)
         }
     }
     updateTimeDisplay(this)
