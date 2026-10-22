@@ -3,13 +3,13 @@
 	"id": "iceboat-plugin",
 	"version": "${version}",
 	"name": "Iceboat Plugin",
-	"description": "This is an example description! Tell everyone what your mod is about!",
+	"description": "A mod for tracking ice boat races; Created for UNSW MCSoc.",
 	"authors": [
-		"Me!"
+		"veveddo"
 	],
 	"contact": {
-		"homepage": "https://fabricmc.net/",
-		"sources": "https://github.com/FabricMC/fabric-example-mod"
+		"homepage": "https://unswminecraft.com",
+		"sources": "https://github.com/UNSW-Minecraft-Society/iceboat-plugin-26.3"
 	},
 	"license": "CC0-1.0",
 	"icon": "assets/iceboat-plugin/icon.png",
