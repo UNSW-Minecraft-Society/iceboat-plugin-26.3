@@ -18,17 +18,24 @@ private const val POSITION_STEP: UInt = 40u
 private const val SIDEBAR_TIME_ID = "times"
 
 fun trackPlayerTimeAtNode(level: ServerLevel, lap: UInt, player: UUID, node: UUID, time: Duration) {
-    val isFirst = (level.mapData.getNode(node) ?: return).isFirst
-    if (level.playerData.trackPlayerTimeAtNode(player, node, isFirst, time)) {
-        val player = level.server.playerList.getPlayer(player)
-        player?.sendSystemMessage(Component.literal("new pb: $time!"))
-    } else {
-        val player = level.server.playerList.getPlayer(player)
-        player?.sendSystemMessage(Component.literal("split time: $time."))
-    }
+    val nextNode = level.mapData.getNode(node) ?: return
+    
     level.playerData.getOrInitPlayerData(player).nodePosition = level.raceData.getNodeProgress(node, lap)?.numPassed ?: 0u
-    if (level.raceData.trackPlayerPassed(node, lap, player, time)) {
-        // announce new fastest time idk
+    val isNewFastestTime = level.raceData.trackPlayerPassed(node, lap, player, time)
+    
+    if (nextNode.endsSplit || nextNode.isFirst) {
+        if (level.playerData.trackPlayerTimeAtNode(player, node, nextNode.isFirst, time)) {
+            val player = level.server.playerList.getPlayer(player)
+            player?.sendSystemMessage(Component.literal("new pb: $time!"))
+        } else {
+            val player = level.server.playerList.getPlayer(player)
+            player?.sendSystemMessage(Component.literal("split time: $time."))
+        }
+        if (isNewFastestTime) {
+            // announce new fastest time idk
+        }
+    } else {
+        level.playerData.trackPlayerPassingNode(player, node)
     }
     
     updateTimeDisplay(level)

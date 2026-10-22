@@ -1,5 +1,6 @@
 package mcsoc.iceboat.eventhandlers.commands
 
+import com.mojang.brigadier.arguments.BoolArgumentType
 import com.mojang.brigadier.arguments.DoubleArgumentType
 import com.mojang.brigadier.arguments.FloatArgumentType
 import com.mojang.brigadier.arguments.IntegerArgumentType
@@ -36,7 +37,8 @@ private fun removeMap(source: CommandSourceStack, mapId: String): Int {
 private fun nodeFromArguments(ctx: CommandContext<CommandSourceStack>): NodeData {
     return try {
         NodeData(
-            Vec3Argument.getVec3(ctx, VEC3_POSITION_ARGUMENT), 
+            Vec3Argument.getVec3(ctx, VEC3_POSITION_ARGUMENT),
+            BoolArgumentType.getBool(ctx, SPLIT_ARGUMENT),
             FloatArgumentType.getFloat(ctx, ROTATION_ARGUMENT),
             DoubleArgumentType.getDouble(ctx, LENGTH_ARGUMENT) / 2
         )

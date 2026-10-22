@@ -55,6 +55,7 @@ private fun ServerPlayer.onRaceFinished() {
 }
 
 
+// Displays the position of the next checkpoint via targetted particle packets
 fun ServerPlayer.displayNextCheckpoint(nextNode: NodeData) {
     val range = nextNode.ends
     for (p in 0..100 step 5) {
@@ -65,12 +66,12 @@ fun ServerPlayer.displayNextCheckpoint(nextNode: NodeData) {
             0.1F, 0.1F, 0.1F,
             0.0F, 2
         ))
-        // this.connection.send(ClientboundLevelParticlesPacket(
-        //     ParticleTypes.HAPPY_VILLAGER, true, true,
-        //     pos.x, pos.y, pos.z,
-        //     0.1F, 0.1F, 0.1F,
-        //     0.0F, 2
-        // ))
+        if (nextNode.endsSplit) this.connection.send(ClientboundLevelParticlesPacket(
+            ParticleTypes.HAPPY_VILLAGER, true, true,
+            pos.x, pos.y, pos.z,
+            0.1F, 0.1F, 0.1F,
+            0.0F, 2
+        ))
     }
 }
 
@@ -155,8 +156,8 @@ fun ServerLevel.tickPlayerNodeTracking(playerId: UUID, finishedPlayers: MutableC
                 finishedPlayers.add(playerId)
                 playerData.currNode = null
             } else {
-                playerData.timer.reset()
                 playerData.currNode = next
+                if (nextNode.endsSplit) playerData.timer.reset()
             }
         } else {
             // beacon beam at next checkpoint?

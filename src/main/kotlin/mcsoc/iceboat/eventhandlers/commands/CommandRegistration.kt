@@ -1,5 +1,6 @@
 package mcsoc.iceboat.eventhandlers.commands
 
+import com.mojang.brigadier.arguments.BoolArgumentType
 import com.mojang.brigadier.arguments.DoubleArgumentType
 import com.mojang.brigadier.arguments.FloatArgumentType
 import com.mojang.brigadier.arguments.IntegerArgumentType
@@ -39,6 +40,9 @@ private val PLAYER_ARGUMENT_NODE get() = Commands.argument(PLAYER_ARGUMENT, Enti
 internal const val PLAYERS_ARGUMENT = "players"
 private val PLAYERS_ARGUMENT_NODE get() = Commands.argument(PLAYERS_ARGUMENT, EntityArgument.players())
 
+internal const val SPLIT_ARGUMENT = "endsSplit"
+private val SPLIT_ARGUMENT_NODE get() = Commands.argument(SPLIT_ARGUMENT, BoolArgumentType.bool())
+
 
 fun registerCommands() {
     CommandRegistrationCallback.EVENT.register{dispatcher, buildContext, selection -> dispatcher.register(
@@ -60,7 +64,9 @@ fun registerCommands() {
                     .then(VEC3_POSITION_ARGUMENT_NODE
                         .then(ROTATION_ARGUMENT_NODE
                             .then(LENGTH_ARGUMENT_NODE
-                                .executes(CommandActions::addMapNode)
+                                .then(SPLIT_ARGUMENT_NODE
+                                    .executes(CommandActions::addMapNode)
+                                )
                             )
                         )
                     )
@@ -72,7 +78,9 @@ fun registerCommands() {
                         .then(VEC3_POSITION_ARGUMENT_NODE
                             .then(ROTATION_ARGUMENT_NODE
                                 .then(LENGTH_ARGUMENT_NODE
-                                    .executes(CommandActions::insertByMapIndex)
+                                    .then(SPLIT_ARGUMENT_NODE
+                                        .executes(CommandActions::insertByMapIndex)
+                                    )
                                 )
                             )
                         )
@@ -98,7 +106,9 @@ fun registerCommands() {
                     .then(VEC3_POSITION_ARGUMENT_NODE
                         .then(ROTATION_ARGUMENT_NODE
                             .then(LENGTH_ARGUMENT_NODE
-                                .executes(CommandActions::insertById)
+                                .then(SPLIT_ARGUMENT_NODE
+                                    .executes(CommandActions::insertById)
+                                )
                             )
                         )
                     )

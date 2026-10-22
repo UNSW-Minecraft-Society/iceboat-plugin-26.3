@@ -85,6 +85,7 @@ interface PlayerDataExposer {
     val activePlayerData: Iterable<PlayerData>
         get() = player_data.filter{it.key in activePlayers}.values
     
+    fun trackPlayerPassingNode(player: UUID, node: UUID, isFirstNode: Boolean = false)
     fun trackPlayerTimeAtNode(player: UUID, node: UUID, isFirstNode: Boolean, time: Duration): Boolean
 }
 
@@ -92,13 +93,22 @@ internal interface PlayerDataHolder : PlayerDataExposer {
     override val player_data: MutableMap<UUID, PlayerData>
     override fun getOrInitPlayerData(player: UUID, playerName: String): PlayerData = player_data.getOrPut(player){PlayerData(playerName)}
     
-    override fun trackPlayerTimeAtNode(player: UUID, node: UUID, isFirstNode: Boolean, time: Duration): Boolean {
-        return player_data[player]?.let {
+    
+    override fun trackPlayerPassingNode(player: UUID, node: UUID, isFirstNode: Boolean) {
+        player_data[player]?.let {
             // if first map node
             if (isFirstNode) {
                 it.lapsCompleted++
             } 
             it.nodesPassed++
+        } ?: run { IceboatPlugin.LOGGER.error("trackPlayerTimeAtNode: ", StringIndexOutOfBoundsException()) }
+    }
+    
+    override fun trackPlayerTimeAtNode(player: UUID, node: UUID, isFirstNode: Boolean, time: Duration): Boolean {
+        return player_data[player]?.let {
+            
+            trackPlayerPassingNode(player, node, isFirstNode)
+            
             val currNodeTime = it.internal_bestNodeTimes[node] ?: Duration.INFINITE
             it.internal_bestNodeTimes[node] = minOf(currNodeTime, time)
             

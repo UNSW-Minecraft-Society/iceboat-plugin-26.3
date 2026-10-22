@@ -23,6 +23,7 @@ import kotlin.properties.Delegates
 // next node is grabbed via nodes[index + 1]
 data class NodeData(
     val pos: Vec3,
+    val endsSplit: Boolean = false,
     val yawToNext: Float = 0F,
     val range: Double = sqrt(DETECTION_RANGE_SQ)
 ) {
@@ -64,6 +65,7 @@ data class NodeData(
             Codec.DOUBLE.fieldOf("range").forGetter(NodeData::range),
             UInt.CODEC.fieldOf("index").forGetter(NodeData::internal_index),
             UUIDUtil.CODEC.optionalFieldOf("next").forGetter(NodeData::nextOptional),
+            Codec.BOOL.optionalFieldOf("endsSplit", true).forGetter(NodeData::endsSplit),
         ).apply(it, ::NodeData)}
     }
     private constructor(
@@ -71,8 +73,9 @@ data class NodeData(
         yawToNext: Float,
         range: Double,
         index: UInt,
-        next: Optional<UUID>
-    ) : this(pos, yawToNext, range) {
+        next: Optional<UUID>,
+        endsSplit: Boolean
+    ) : this(pos, endsSplit, yawToNext, range) {
         this.internal_index = index
         if (next.isPresent) this.next = next.get()
     }

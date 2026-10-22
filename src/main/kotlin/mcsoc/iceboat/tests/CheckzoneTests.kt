@@ -24,7 +24,7 @@ fun runCheckzoneTest(level: ServerLevel) {
     val before = Vec3(10.0, 5.0, 20.0)
     val after = Vec3(30.0, 5.0, 20.0)
 
-    val testnode = NodeData(pos, yRot)
+    val testnode = NodeData(pos, false, yRot)
     val crossed = testnode.passedBy(before, after)
     IceboatPlugin.LOGGER.info("crossed: {}", crossed)
 }
