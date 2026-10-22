@@ -181,15 +181,21 @@ object CommandActions {
         for (player in EntityArgument.getPlayers(ctx, PLAYERS_ARGUMENT)) {
             level.playerData.getOrInitPlayerData(player)
             level.playerData.activePlayers.add(player.uuid)
+            
+            player.sendSystemMessage(Component.literal("You have been signed up for the next race!"))
+            ctx.source.sendSuccess({Component.literal("Added ${player.displayName} to the next race.")}, true)
         }
         
         return 1
     }
     
-    fun removePlayersFromGame(ctx: CommandContext<CommandSourceStack>): Int {
-        ctx.source.level.playerData.activePlayers.removeAll(
-            EntityArgument.getPlayers(ctx, PLAYERS_ARGUMENT).map(Player::getUUID).toSet()
-        )
+    fun removePlayersFromGame(ctx: CommandContext<CommandSourceStack>): Int {        
+        for (player in EntityArgument.getPlayers(ctx, PLAYERS_ARGUMENT)) {
+            if (ctx.source.level.playerData.activePlayers.remove(player.uuid)) {
+                player.sendSystemMessage(Component.literal("You are no longer signed up for the next race."))
+                ctx.source.sendSuccess({Component.literal("Removed ${player.displayName} from the next race.")}, true)
+            }
+        }
         
         return 1
     }
