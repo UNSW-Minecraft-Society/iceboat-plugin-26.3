@@ -10,17 +10,20 @@ import net.minecraft.network.chat.Component
 import net.minecraft.network.chat.FontDescription
 import net.minecraft.network.chat.Style
 import net.minecraft.network.chat.TextColor
+import net.minecraft.network.protocol.game.ClientboundAddEntityPacket
 import net.minecraft.network.protocol.game.ClientboundLevelParticlesPacket
 import net.minecraft.network.protocol.game.ClientboundSetActionBarTextPacket
 import net.minecraft.resources.Identifier
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.util.Mth
+import net.minecraft.world.entity.Display
 import net.minecraft.world.entity.EntityType
 import net.minecraft.world.entity.EntityTypes
 import net.minecraft.world.entity.vehicle.boat.ChestBoat
 import net.minecraft.world.item.Items
 import net.minecraft.world.level.GameType
+import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.phys.Vec3
 import java.math.RoundingMode
 import java.util.UUID
@@ -47,6 +50,12 @@ private val chestBoatTypes: Set<EntityType<out ChestBoat>> = setOf(
 private fun spawnRandomChestBoat(level: ServerLevel, prespawn: (ChestBoat) -> Unit = {}): ChestBoat {
     return ChestBoat(chestBoatTypes.random(), level){Items.AIR}.also(prespawn)
         .also(level::addFreshEntityWithPassengers)
+        .also {
+            val display = Display.BlockDisplay(EntityTypes.BLOCK_DISPLAY, level)
+            display.blockState = Blocks.LIGHTNING_ROD.waxed.unaffected.defaultBlockState()
+            level.addFreshEntity(display)
+            level.raceData.boatToDisplayMap[it.uuid] = display.uuid
+        }
 }
 
 private fun ServerPlayer.onRaceFinished() {
@@ -107,6 +116,18 @@ fun ServerPlayer.sendActionbarHUD(velocity: Double, time: Duration) {
 }
 
 
+fun ServerLevel.broadcastPositionVisually(playerId: UUID) {
+    val vehicleId = level.raceData.playerToBoatMap[playerId] ?: return
+    val display = this.getEntity(level.raceData.boatToDisplayMap[vehicleId] ?: return) ?: return
+    this.getEntity(vehicleId)?.let{
+        // if (display.vehicle == null) display.startRiding(it, true, true)
+        display.teleportTo(it.x, it.y, it.z)
+    } ?: run {
+        display.kill(this)
+    }
+}
+
+
 fun ServerLevel.ensureBoatRiding(playerId: UUID) {
     val player = this.server.playerList.getPlayer(playerId) ?: return
     if (player.vehicle == null) {
@@ -120,8 +141,9 @@ fun ServerLevel.tickActivePlayers() {
     val finishedPlayers: MutableCollection<UUID> = mutableListOf()
     for (playerId in this.playerData.activePlayers) {
         if (this.raceData.phase.isActive) {
-            tickPlayerNodeTracking(playerId, finishedPlayers)
             ensureBoatRiding(playerId)
+            broadcastPositionVisually(playerId)
+            tickPlayerNodeTracking(playerId, finishedPlayers)
         }
     }
     broadcastFinishedPlayers(finishedPlayers)

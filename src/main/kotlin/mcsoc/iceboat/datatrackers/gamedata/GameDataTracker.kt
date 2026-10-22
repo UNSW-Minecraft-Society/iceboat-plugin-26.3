@@ -29,4 +29,5 @@ class GameDataTracker() : LevelTiedData(), GameDataHolder {
     override var phase: GamePhase = GamePhase.Inactive
     override val nodeProgress: MutableList<MutableMap<UUID, LapProgress>> = mutableListOf()
     override val playerToBoatMap: MutableMap<UUID, UUID> = mutableMapOf()
+    override val boatToDisplayMap: MutableMap<UUID, UUID> = mutableMapOf()
 }
