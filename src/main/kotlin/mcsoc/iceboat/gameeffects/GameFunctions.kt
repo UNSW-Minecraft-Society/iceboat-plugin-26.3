@@ -227,7 +227,7 @@ fun ServerLevel.startRound(mapId: String): Int {
         
         spawnRandomChestBoat(this).also{
             it.teleportTo(this, startPos.x, startPos.y, startPos.z, emptySet(), firstNodeData.yawToNext, 0F, false)
-            this.setChunkForced(startPos.x.toInt() >> 4, startPos.z.toInt() >> 4, true)
+            this.setChunkForced(startPos.x.toInt() shr 4, startPos.z.toInt() shr 4, true)
             this.raceData.playerToBoatMap[player] = it.uuid
         }
         
