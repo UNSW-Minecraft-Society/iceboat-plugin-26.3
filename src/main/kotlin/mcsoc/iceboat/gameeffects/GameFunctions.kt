@@ -1,11 +1,9 @@
 package mcsoc.iceboat.gameeffects
 
 import mcsoc.iceboat.datatrackers.eventsQueue
-import mcsoc.iceboat.datatrackers.gamedata.GamePhase
 import mcsoc.iceboat.datatrackers.mapData
 import mcsoc.iceboat.datatrackers.mapdata.NodeData
 import mcsoc.iceboat.datatrackers.playerData
-import mcsoc.iceboat.datatrackers.playerdata.PlayerData
 import mcsoc.iceboat.datatrackers.raceData
 import net.minecraft.core.particles.ParticleTypes
 import net.minecraft.network.chat.Component
@@ -51,9 +49,9 @@ private fun spawnRandomChestBoat(level: ServerLevel, prespawn: (ChestBoat) -> Un
         .also(level::addFreshEntityWithPassengers)
 }
 
-private fun handlePlayerFinish(player: ServerPlayer) {
-    player.controlledVehicle?.kill(player.level())
-    player.setGameMode(GameType.SPECTATOR)
+private fun ServerPlayer.onRaceFinished() {
+    this.controlledVehicle?.kill(this.level())
+    this.setGameMode(GameType.SPECTATOR)
 }
 
 
@@ -180,7 +178,7 @@ fun ServerLevel.broadcastFinishedPlayers(finishedPlayers: MutableCollection<UUID
             val position = finishedPlayerData.nodePosition + 1u
             if (targetId == finishedPlayerId) {
                 target.sendSystemMessage(Component.literal("You finished in position $position!"))
-                handlePlayerFinish(target)
+                target.onRaceFinished()
             } else {
                 target.sendSystemMessage(Component.literal("${finishedPlayerData.playerName} finished in position $position!"))
             }
@@ -220,8 +218,10 @@ fun ServerLevel.startRound(mapId: String): Int {
             this.raceData.playerToBoatMap[player] = it.uuid
         }
         
-        this.server.playerList.getPlayer(player)?.
-            teleportTo(this, startPos.x, startPos.y, startPos.z, emptySet(), firstNodeData.yawToNext, 0F, false)
+        this.server.playerList.getPlayer(player)?.let{
+            it.setGameMode(GameType.SPECTATOR)
+            it.teleportTo(this, startPos.x, startPos.y, startPos.z, emptySet(), firstNodeData.yawToNext, 0F, false)
+        }
     }
     
 
@@ -254,9 +254,27 @@ fun ServerLevel.beginRace() {
 }
 
 fun ServerLevel.endRound() {
-    // clear player data
-    this.playerData.activePlayerData.forEach(PlayerData::resetData)
-    this.playerData.activePlayers.mapNotNull(this.server.playerList::getPlayer).forEach(::handlePlayerFinish)
+    val finalPositions: MutableList<Pair<UInt, String>> = mutableListOf()
+    for (playerData in this.playerData.activePlayerData) {
+        if (playerData.lapsCompleted >= this.raceData.numLaps) {
+            finalPositions.add(Pair(playerData.nodePosition + 1u, playerData.playerName))
+        } else {
+            finalPositions.add(Pair(999u, playerData.playerName))
+        }
+        
+        // clear player data
+        playerData.resetData()
+    }
+    finalPositions.sortWith{p1, p2 -> p1.first.compareTo(p2.first)}
+
+    for (player in this.playerData.activePlayers.mapNotNull(this.server.playerList::getPlayer)) {
+        player.onRaceFinished()
+        for (position in finalPositions) {
+            val posString = if (position.first != 999u) "${position.first}".padStart(3) else "DNF"
+            player.sendSystemMessage(Component.literal("$posString: ${position.second}"))
+        }
+    }
+
     this.playerData.activePlayers.clear()
     
     this.raceData.setInactive()
