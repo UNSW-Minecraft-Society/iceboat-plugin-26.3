@@ -27,5 +27,6 @@ class GameDataTracker() : LevelTiedData(), GameDataHolder {
     override var activeMapKey: String = ""
         get() = if (phase.isRunning) field else "" 
     override var phase: GamePhase = GamePhase.Inactive
-    override var nodeProgress: MutableList<MutableMap<UUID, LapProgress>> = mutableListOf()
+    override val nodeProgress: MutableList<MutableMap<UUID, LapProgress>> = mutableListOf()
+    override val playerToBoatMap: MutableMap<UUID, UUID> = mutableMapOf()
 }

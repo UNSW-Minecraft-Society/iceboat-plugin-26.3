@@ -196,7 +196,7 @@ fun ServerLevel.broadcastFinishedPlayers(finishedPlayers: MutableCollection<UUID
  */
 fun ServerLevel.startRound(mapId: String): Int {
     val mapData = this.mapData.getMapData(mapId) ?: return 1
-    level.mapData.getNode(mapData.firstNodeId) ?: return 2
+    val firstNodeData = level.mapData.getNode(mapData.firstNodeId) ?: return 2
         
     if (this.raceData.phase.isRunning) {
         this.endRound()
@@ -209,6 +209,21 @@ fun ServerLevel.startRound(mapId: String): Int {
     // if not enough start positions
     if (playerData.activePlayers.size > mapData.startPositions.size) return 3
     this.raceData.setActiveMap(mapId)
+    
+
+    val startPositions = mapData.startPositions.iterator()
+    for (player in playerData.activePlayers.shuffled()) {
+        val startPos = startPositions.next()
+        
+        spawnRandomChestBoat(this).also{
+            it.teleportTo(this, startPos.x, startPos.y, startPos.z, emptySet(), firstNodeData.yawToNext, 0F, false)
+            this.raceData.playerToBoatMap[player] = it.uuid
+        }
+        
+        this.server.playerList.getPlayer(player)?.
+            teleportTo(this, startPos.x, startPos.y, startPos.z, emptySet(), firstNodeData.yawToNext, 0F, false)
+    }
+    
 
     // TODO make this trigger a countdown
     this.eventsQueue.queueGameStartCounter(5.seconds)
@@ -229,16 +244,11 @@ fun ServerLevel.beginRace() {
             it.currNode = mapData.firstNodeId
         }
     
+        // player.teleportTo(this, startPos.x, startPos.y, startPos.z, emptySet(), firstNodeData.yawToNext, 0F, false)
+        val vehicle = this.getEntity(this.raceData.playerToBoatMap[player]!!)!!
         val player = this.server.playerList.getPlayer(player) ?: continue
         player.setGameMode(GameType.ADVENTURE)
-        player.teleportTo(this, startPos.x, startPos.y, startPos.z, emptySet(), firstNodeData.yawToNext, 0F, false)
-        spawnRandomChestBoat(this).also{
-            it.teleportTo(this, player.x, player.y, player.z, emptySet(), firstNodeData.yawToNext, 0F, false)
-            player.startRiding(it, true, true)
-            player.yRot = firstNodeData.yawToNext
-            player.setYHeadRot(firstNodeData.yawToNext)
-            player.setYBodyRot(firstNodeData.yawToNext)
-        }
+        player.startRiding(vehicle, true, true)
     }
     this.raceData.startRace()
 }

@@ -67,11 +67,19 @@ interface GameDataExposer {
     
     // return if time was new fastest
     fun trackPlayerPassed(node: UUID, lap: UInt, player: UUID, playerTime: Duration): Boolean
+    
+    val playerToBoatMap: MutableMap<UUID, UUID>
 }
 
 internal interface GameDataHolder : GameDataExposer {
     override var phase: GamePhase
     override var activeMapKey: String
+    
+    override val nodeProgress: MutableList<MutableMap<UUID, LapProgress>>
+    override fun getNodeProgress(node: UUID, lap: Int): LapProgress = super.getNodeProgress(node, lap) ?: run {
+        while (nodeProgress.size <= lap) nodeProgress.add(mutableMapOf())
+        LapProgress().also{ nodeProgress[lap][node] = it }
+    }    
     
     private fun setActiveMapInternal(key: String?) {
         activeMapKey = key?.also{
@@ -82,18 +90,13 @@ internal interface GameDataHolder : GameDataExposer {
         }
         // clear old race data
         nodeProgress.clear()
+        playerToBoatMap.clear()
     }
     override fun setActiveMap(key: String) = setActiveMapInternal(key)
     override fun startRace() {
         phase = GamePhase.Active
     }
     override fun setInactive() = setActiveMapInternal(null)
-    
-    override var nodeProgress: MutableList<MutableMap<UUID, LapProgress>>
-    override fun getNodeProgress(node: UUID, lap: Int): LapProgress = super.getNodeProgress(node, lap) ?: run {
-        while (nodeProgress.size <= lap) nodeProgress.add(mutableMapOf())
-        LapProgress().also{ nodeProgress[lap][node] = it }
-    }
     
     override fun trackPlayerPassed(node: UUID, lap: UInt, player: UUID, playerTime: Duration): Boolean {
         val lap = lap.toInt()
