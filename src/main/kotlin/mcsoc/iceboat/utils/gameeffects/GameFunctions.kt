@@ -1,22 +1,17 @@
 package mcsoc.iceboat.utils.gameeffects
 
-import mcsoc.iceboat.IceboatPlugin
+import mcsoc.iceboat.datatrackers.eventsQueue
+import mcsoc.iceboat.datatrackers.gamedata.GamePhase
 import mcsoc.iceboat.datatrackers.mapData
 import mcsoc.iceboat.datatrackers.mapdata.NodeData
 import mcsoc.iceboat.datatrackers.playerData
 import mcsoc.iceboat.datatrackers.playerdata.PlayerData
 import mcsoc.iceboat.datatrackers.raceData
-import mcsoc.iceboat.utils.format
-import net.minecraft.core.BlockPos
-import net.minecraft.core.particles.ParticleOptions
 import net.minecraft.core.particles.ParticleTypes
 import net.minecraft.network.chat.Component
 import net.minecraft.network.chat.FontDescription
-import net.minecraft.network.chat.MutableComponent
 import net.minecraft.network.chat.Style
 import net.minecraft.network.chat.TextColor
-import net.minecraft.network.protocol.game.ClientboundBlockEventPacket
-import net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket
 import net.minecraft.network.protocol.game.ClientboundLevelParticlesPacket
 import net.minecraft.network.protocol.game.ClientboundSetActionBarTextPacket
 import net.minecraft.resources.Identifier
@@ -25,17 +20,14 @@ import net.minecraft.server.level.ServerPlayer
 import net.minecraft.util.Mth
 import net.minecraft.world.entity.EntityType
 import net.minecraft.world.entity.EntityTypes
-import net.minecraft.world.entity.vehicle.boat.AbstractChestBoat
 import net.minecraft.world.entity.vehicle.boat.ChestBoat
-import net.minecraft.world.entity.vehicle.boat.ChestRaft
 import net.minecraft.world.item.Items
 import net.minecraft.world.level.GameType
-import net.minecraft.world.level.block.BeaconBlock
-import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.phys.Vec3
 import java.math.RoundingMode
-import java.util.Queue
 import java.util.UUID
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 
 
 // This isn't level-tied, but I don't forsee any actual problems.
@@ -84,88 +76,113 @@ fun ServerPlayer.displayNextCheckpoint(nextNode: NodeData) {
     }
 }
 
-fun ServerLevel.tickPlayerNodeTracking() {
-    val finishedPlayers: MutableCollection<UUID> = mutableListOf()
-    for (playerId in level.playerData.activePlayers) {
-        
-        // skip if player doesn't exist :skull:
-        val playerData = level.playerData.player_data[playerId] ?: continue
-        // skip if player isn't part of the race or has finished
-        val curr = playerData.currNode ?: continue
-        
-        // tick player time (even if offline)
-        playerData.timer.tick()
-        
-        // skip if player is offline
-        val player = level.server.playerList.getPlayer(playerId) ?: continue
-        
-        // this shouldn't fail if currNode exists
-        val next = level.mapData.getNode(curr)?.next ?: throw StringIndexOutOfBoundsException("tick")
-        val nextNode = level.mapData.getNode(next) ?: throw StringIndexOutOfBoundsException("tick")
-        
-        oldPosMap[playerId]?.let{
-            if (nextNode.passedBy(it.last(), player.position())) {
-                player.trackTimeAtNode(playerData.lapsCompleted, next, playerData.timer.time)
-                if (playerData.lapsCompleted >= level.raceData.numLaps) {
-                    // trigger win
-                    finishedPlayers.add(playerId)
-                    playerData.currNode = null
-                } else {
-                    playerData.timer.reset()
-                    playerData.currNode = next
-                }
-            } else {
-                // beacon beam at next checkpoint?
-                player.displayNextCheckpoint(nextNode)
-            }
-            
-            // TODO sum last 3 deltas instead of just last
-            val velocity = (it.last().subtract(player.position()).length() * 72.0).toBigDecimal().setScale(3, RoundingMode.FLOOR).toString().substring(0 until 5)
-            val timeString = playerData.timer.time.toComponents{ minutes, seconds, nanos -> 
-                "$minutes".padStart(2, '0') + ":" + "$seconds".padStart(2, '0') + ":" + "$nanos".padStart(2, '0').substring(0 until 2)
-            }
-            
-            player.connection.send(ClientboundSetActionBarTextPacket(
-                Component.empty()
-                    .append(Component.literal("Speed: ").append(
-                        Component.literal(velocity.padEnd(5)).withStyle(Style.EMPTY
-                        // monospaced font
-                        .withFont(FontDescription.Resource(Identifier.withDefaultNamespace("uniform")))
-                        .withColor(TextColor.AQUA)
-                        .withBold(true)
-                        .withUnderlined(true)
-                        )
-                    ).append(" km/h")
-                    )
-                    .append(Component.literal(" | "))
-                    .append(Component.literal("Time: ").append(
-                        Component.literal(timeString).withStyle(Style.EMPTY
-                        // monospaced font
-                        .withFont(FontDescription.Resource(Identifier.withDefaultNamespace("uniform")))
-                        .withColor(TextColor.GREEN)
-                        .withBold(true)
-                        .withUnderlined(true)
-                        )
-                    ))
-            ))
-        } ?: run { oldPosMap[playerId] = ArrayDeque(3) }
-        oldPosMap[playerId]?.let{
-            it.add(player.position())
-            if (it.size > 3)  {
-                it.removeFirstOrNull()
-            }
-        }        
+fun ServerPlayer.sendActionbarHUD(velocity: Double, time: Duration) {
+    val velocityString = velocity.toBigDecimal().setScale(3, RoundingMode.FLOOR).toString().substring(0 until 5)
+    val timeString = time.toComponents{ minutes, seconds, nanos -> 
+        "$minutes".padStart(2, '0') + ":" + "$seconds".padStart(2, '0') + ":" + "$nanos".padStart(2, '0').substring(0 until 2)
     }
-    for (playerId in level.playerData.activePlayers) {
-        val player = level.server.playerList.getPlayer(playerId) ?: continue
-        for (finishedPlayer in finishedPlayers) {
-            val finishedPlayerData = level.playerData.player_data[finishedPlayer] ?: continue
-            val position = finishedPlayerData.nodePosition + 1u
-            if (playerId == finishedPlayer) {
-                player.sendSystemMessage(Component.literal("You finished in position $position!"))
-                handlePlayerFinish(player)
+    
+    this.connection.send(ClientboundSetActionBarTextPacket(
+        Component.empty()
+            .append(Component.literal("Speed: ").append(
+                Component.literal(velocityString.padEnd(5)).withStyle(Style.EMPTY
+                // monospaced font
+                .withFont(FontDescription.Resource(Identifier.withDefaultNamespace("uniform")))
+                .withColor(TextColor.AQUA)
+                .withBold(true)
+                .withUnderlined(true)
+                )
+            ).append(" km/h")
+            )
+            .append(Component.literal(" | "))
+            .append(Component.literal("Time: ").append(
+                Component.literal(timeString).withStyle(Style.EMPTY
+                // monospaced font
+                .withFont(FontDescription.Resource(Identifier.withDefaultNamespace("uniform")))
+                .withColor(TextColor.GREEN)
+                .withBold(true)
+                .withUnderlined(true)
+                )
+            ))
+    ))
+}
+
+
+fun ServerLevel.tickActivePlayers() {
+    val finishedPlayers: MutableCollection<UUID> = mutableListOf()
+    for (playerId in this.playerData.activePlayers) {
+        if (this.raceData.phase.isActive) tickPlayerNodeTracking(playerId, finishedPlayers)
+    }
+    broadcastFinishedPlayers(finishedPlayers)
+}
+
+/* Arguments
+ *  playerId - PlayerData of an active player
+ *  finishedPlayers - A list to append players to finished to
+ */
+fun ServerLevel.tickPlayerNodeTracking(playerId: UUID, finishedPlayers: MutableCollection<UUID>) {
+    
+    // skip if player doesn't exist :skull:
+    val playerData = level.playerData.player_data[playerId] ?: return
+    // skip if player isn't part of the race or has finished
+    val curr = playerData.currNode ?: return
+    
+    // tick player time (even if offline)
+    playerData.timer.tick()
+    
+    // skip if player is offline
+    val player = level.server.playerList.getPlayer(playerId) ?: return
+    
+    // this shouldn't fail if currNode exists
+    val next = level.mapData.getNode(curr)?.next ?: throw StringIndexOutOfBoundsException("tick")
+    val nextNode = level.mapData.getNode(next) ?: throw StringIndexOutOfBoundsException("tick")
+    
+    oldPosMap[playerId]?.let{
+        if (nextNode.passedBy(it.last(), player.position())) {
+            player.trackTimeAtNode(playerData.lapsCompleted, next, playerData.timer.time)
+            if (playerData.lapsCompleted >= level.raceData.numLaps) {
+                // trigger win
+                finishedPlayers.add(playerId)
+                playerData.currNode = null
             } else {
-                player.sendSystemMessage(Component.literal("${finishedPlayerData.playerName} finished in position $position!"))
+                playerData.timer.reset()
+                playerData.currNode = next
+            }
+        } else {
+            // beacon beam at next checkpoint?
+            player.displayNextCheckpoint(nextNode)
+        }
+        
+        // TODO sum last 3 deltas instead of just last
+        //  *72 to convert from m/t to km/h
+        val velocity = it.last().subtract(player.position()).length() * 72.0          
+        val time = playerData.timer.time
+        player.sendActionbarHUD(velocity, time)
+        
+        
+    } ?: run { oldPosMap[playerId] = ArrayDeque(3) }
+    oldPosMap[playerId]?.let{
+        it.add(player.position())
+        if (it.size > 3)  {
+            it.removeFirstOrNull()
+        }
+    }        
+}
+
+/* Arguments
+ *  finishedPlayers - A list of players who finished
+ */
+fun ServerLevel.broadcastFinishedPlayers(finishedPlayers: MutableCollection<UUID>) {
+    for (targetId in this.playerData.activePlayers) {
+        val target = level.server.playerList.getPlayer(targetId) ?: return
+        for (finishedPlayerId in finishedPlayers) {
+            val finishedPlayerData = level.playerData.player_data[finishedPlayerId] ?: continue
+            val position = finishedPlayerData.nodePosition + 1u
+            if (targetId == finishedPlayerId) {
+                target.sendSystemMessage(Component.literal("You finished in position $position!"))
+                handlePlayerFinish(target)
+            } else {
+                target.sendSystemMessage(Component.literal("${finishedPlayerData.playerName} finished in position $position!"))
             }
         }
     }
@@ -179,18 +196,31 @@ fun ServerLevel.tickPlayerNodeTracking() {
  */
 fun ServerLevel.startRound(mapId: String): Int {
     val mapData = this.mapData.getMapData(mapId) ?: return 1
-    val firstNodeData = level.mapData.getNode(mapData.firstNodeId) ?: return 2
+    level.mapData.getNode(mapData.firstNodeId) ?: return 2
         
-    if (this.raceData.activeMapKey.isEmpty()) {
+    if (this.raceData.phase.isRunning) {
         this.endRound()
     }
+    
+    updateTimeDisplay(this)
     
     val playerData = this.playerData
 
     // if not enough start positions
     if (playerData.activePlayers.size > mapData.startPositions.size) return 3
     this.raceData.setActiveMap(mapId)
+
+    // TODO make this trigger a countdown
+    this.eventsQueue.queueGameStartCounter(5.seconds)
     
+    return 0
+}
+
+
+fun ServerLevel.beginRace() {
+    val mapData = this.mapData.getMapData(this.raceData.activeMapKey) ?: return
+    val firstNodeData = level.mapData.getNode(mapData.firstNodeId) ?: return
+
     val startPositions = mapData.startPositions.iterator()
     for (player in playerData.activePlayers.shuffled()) {
         val startPos = startPositions.next()
@@ -210,15 +240,15 @@ fun ServerLevel.startRound(mapId: String): Int {
             player.setYBodyRot(firstNodeData.yawToNext)
         }
     }
-    updateTimeDisplay(this)
-    
-    return 0
+    this.raceData.startRace()
 }
 
 fun ServerLevel.endRound() {
     // clear player data
     this.playerData.activePlayerData.forEach(PlayerData::resetData)
     this.playerData.activePlayers.mapNotNull(this.server.playerList::getPlayer).forEach(::handlePlayerFinish)
+    this.playerData.activePlayers.clear()
+    
     this.raceData.setInactive()
     updateTimeDisplay(this)
 }

@@ -15,7 +15,7 @@ public class AbstractBoatTickMixin extends EntityTickMixin {
         var this_boat = (AbstractBoat)(Object)this;
         if (!(this_boat.level() instanceof ServerLevel level)) return;
 
-        Boolean gameRunning = !LevelData.getRaceData(level).getActiveMapKey().isEmpty();
+        Boolean gameRunning = !LevelData.getRaceData(level).getPhase().isActive();
 
         if (!gameRunning) {
             this_boat.setDeltaMovement(this_boat.getDeltaMovement().multiply(0, 1, 0));

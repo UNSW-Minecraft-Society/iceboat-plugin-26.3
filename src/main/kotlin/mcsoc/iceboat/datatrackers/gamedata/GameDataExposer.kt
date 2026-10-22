@@ -4,6 +4,7 @@ import com.mojang.serialization.Codec
 import com.mojang.serialization.codecs.RecordCodecBuilder
 import mcsoc.iceboat.utils.CODEC
 import net.minecraft.core.UUIDUtil
+import net.minecraft.util.StringRepresentable
 import java.util.UUID
 import kotlin.time.Duration
 
@@ -34,9 +35,25 @@ data class LapProgress(
     }
 }
 
+
+enum class GamePhase(val isRunning: Boolean, val isActive: Boolean) : StringRepresentable {
+    Inactive(false, false),
+    Countdown(true, false),
+    Active(true, true);
+
+    override fun getSerializedName(): String = this.name
+    
+    companion object {
+        val CODEC = StringRepresentable.fromEnum(GamePhase::values)
+    }
+}
+
+
 interface GameDataExposer {
+    val phase: GamePhase
     val activeMapKey: String
     fun setActiveMap(key: String)
+    fun startRace()
     fun setInactive()
     
     val numLaps: UInt get() = 3u
@@ -53,14 +70,23 @@ interface GameDataExposer {
 }
 
 internal interface GameDataHolder : GameDataExposer {
+    override var phase: GamePhase
     override var activeMapKey: String
     
-    private fun setActiveMapInternal(key: String?) { 
-        activeMapKey = (key ?: "")
+    private fun setActiveMapInternal(key: String?) {
+        activeMapKey = key?.also{
+            phase = GamePhase.Countdown
+        } ?: run {
+            phase = GamePhase.Inactive
+            ""
+        }
         // clear old race data
         nodeProgress.clear()
     }
     override fun setActiveMap(key: String) = setActiveMapInternal(key)
+    override fun startRace() {
+        phase = GamePhase.Active
+    }
     override fun setInactive() = setActiveMapInternal(null)
     
     override var nodeProgress: MutableList<MutableMap<UUID, LapProgress>>

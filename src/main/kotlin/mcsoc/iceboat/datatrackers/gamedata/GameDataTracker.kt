@@ -14,14 +14,18 @@ class GameDataTracker() : LevelTiedData(), GameDataHolder {
     companion object {
         val CODEC: MapCodec<GameDataTracker> = RecordCodecBuilder.mapCodec{it.group(
             Codec.STRING.fieldOf("activeMapKey").forGetter(GameDataTracker::activeMapKey),
-            Codec.unboundedMap(UUIDUtil.STRING_CODEC, LapProgress.CODEC).listOf().fieldOf("nodeProgress").forGetter(GameDataTracker::nodeProgress)
+            Codec.unboundedMap(UUIDUtil.STRING_CODEC, LapProgress.CODEC).listOf().fieldOf("nodeProgress").forGetter(GameDataTracker::nodeProgress),
+            GamePhase.CODEC.fieldOf("gamePhase").forGetter(GameDataTracker::phase)
         ).apply(it, ::GameDataTracker)}
     }
-    private constructor(activeMapKey: String, nodeProgress: MutableList<MutableMap<UUID, LapProgress>>) : this() {
+    private constructor(activeMapKey: String, nodeProgress: MutableList<MutableMap<UUID, LapProgress>>, phase: GamePhase) : this() {
         this.activeMapKey = activeMapKey
         nodeProgress.map{it.toMutableMap()}.forEach(this.nodeProgress::add)
+        this.phase = phase
     }
     
     override var activeMapKey: String = ""
+        get() = if (phase.isRunning) field else "" 
+    override var phase: GamePhase = GamePhase.Inactive
     override var nodeProgress: MutableList<MutableMap<UUID, LapProgress>> = mutableListOf()
 }

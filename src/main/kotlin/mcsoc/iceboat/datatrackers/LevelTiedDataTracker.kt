@@ -13,6 +13,8 @@ import mcsoc.iceboat.datatrackers.playerdata.PlayerDataExposer
 import mcsoc.iceboat.datatrackers.playerdata.PlayerDataTracker
 import mcsoc.iceboat.datatrackers.timer.GameTimer
 import mcsoc.iceboat.datatrackers.timer.TickExposer
+import mcsoc.iceboat.datatrackers.gameevents.GameEventsExposer
+import mcsoc.iceboat.datatrackers.gameevents.GameEventsTracker
 import net.minecraft.resources.Identifier
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.util.datafix.DataFixTypes
@@ -22,7 +24,7 @@ import net.minecraft.world.level.saveddata.SavedDataType
 
 // each tracker should extend this class
 abstract class LevelTiedData {
-    companion object {                
+    companion object {
         internal val CODEC: Codec<LevelTiedData> = LevelDataType.CODEC.dispatch(
             { inst -> inst.getType() },
             { type -> type.codec }
@@ -91,6 +93,7 @@ sealed class LevelDataType<T : LevelTiedData>(val id: String, val default: () ->
     object PlayerData : LevelDataType<PlayerDataTracker>("players", ::PlayerDataTracker, PlayerDataTracker.CODEC)
     object GameClock : LevelDataType<GameTimer>("clock", ::GameTimer, GameTimer.CODEC)
     object RaceData : LevelDataType<GameDataTracker>("race", ::GameDataTracker, GameDataTracker.CODEC)
+    object EventsQueue : LevelDataType<GameEventsTracker>("events", ::GameEventsTracker, GameEventsTracker.CODEC)
 }
 
 // put other level-tied data getters here
@@ -98,3 +101,4 @@ val ServerLevel.mapData: MapDataExposer get() = this.levelTiedData.getDataOfType
 val ServerLevel.playerData: PlayerDataExposer get() = this.levelTiedData.getDataOfType(LevelDataType.PlayerData)
 val ServerLevel.gameClock: TickExposer get() = this.levelTiedData.getDataOfType(LevelDataType.GameClock)
 val ServerLevel.raceData: GameDataExposer get() = this.levelTiedData.getDataOfType(LevelDataType.RaceData)
+val ServerLevel.eventsQueue: GameEventsExposer get() = this.levelTiedData.getDataOfType(LevelDataType.EventsQueue).also{it.level = this}
