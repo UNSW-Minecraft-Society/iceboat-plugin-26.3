@@ -20,6 +20,7 @@ class PlayerData(
     var currNode: UUID? = null
     private val currNodeOptional get() = Optional.ofNullable(currNode)
     var nodesPassed: UInt = 0u
+    var nodesThisLapPassed: UInt = 0u
     var nodePosition = 0u
     var lapsCompleted: UInt = 0u
     val timer = object : TimeHolder {
@@ -61,9 +62,9 @@ class PlayerData(
         
     fun resetData() {
         currNode = null
-        nodesPassed = 0u
         internal_bestNodeTimes.clear()
         nodesPassed = 0u
+        nodesThisLapPassed = 0u
         nodePosition = 0u
         lapsCompleted = 0u
         timer.reset()
@@ -96,11 +97,13 @@ internal interface PlayerDataHolder : PlayerDataExposer {
     
     override fun trackPlayerPassingNode(player: UUID, node: UUID, isFirstNode: Boolean) {
         player_data[player]?.let {
+            it.nodesPassed++
+            it.nodesThisLapPassed++
             // if first map node
             if (isFirstNode) {
                 it.lapsCompleted++
-            } 
-            it.nodesPassed++
+                it.nodesThisLapPassed = 0u
+            }
         } ?: run { IceboatPlugin.LOGGER.error("trackPlayerTimeAtNode: ", StringIndexOutOfBoundsException()) }
     }
     

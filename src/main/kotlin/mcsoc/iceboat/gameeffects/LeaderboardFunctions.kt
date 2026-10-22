@@ -5,6 +5,9 @@ import mcsoc.iceboat.datatrackers.playerData
 import mcsoc.iceboat.datatrackers.raceData
 import net.minecraft.network.chat.Component
 import net.minecraft.network.chat.numbers.BlankFormat
+import net.minecraft.network.chat.numbers.FixedFormat
+import net.minecraft.network.chat.numbers.NumberFormat
+import net.minecraft.network.chat.numbers.StyledFormat
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.scores.DisplaySlot
@@ -15,7 +18,7 @@ import kotlin.time.Duration
 
 
 private const val POSITION_STEP: UInt = 40u
-private const val SIDEBAR_TIME_ID = "times"
+private const val SIDEBAR_TIME_ID = "positions"
 
 fun trackPlayerTimeAtNode(level: ServerLevel, lap: UInt, player: UUID, node: UUID, time: Duration) {
     val nextNode = level.mapData.getNode(node) ?: return
@@ -55,7 +58,7 @@ fun updateTimeDisplay(level: ServerLevel) {
     }
     val timeDisplay = scoreboard.getObjective(SIDEBAR_TIME_ID) ?:
         scoreboard.addObjective(
-            SIDEBAR_TIME_ID, ObjectiveCriteria.DUMMY, Component.literal("Times"), 
+            SIDEBAR_TIME_ID, ObjectiveCriteria.DUMMY, Component.literal("Positions"), 
             ObjectiveCriteria.RenderType.INTEGER, true, BlankFormat.INSTANCE
         ).also {
             scoreboard.setDisplayObjective(DisplaySlot.SIDEBAR, it)
@@ -63,6 +66,11 @@ fun updateTimeDisplay(level: ServerLevel) {
     
     for (player in level.playerData.activePlayerData) {
         val position = (player.nodesPassed * POSITION_STEP - player.nodePosition).toInt()
-        scoreboard.getOrCreatePlayerScore(ScoreHolder.forNameOnly(player.playerName), timeDisplay, true).set(position)
+        
+        val positionString = "${player.lapsCompleted}".padStart(2) + " | " + "${player.nodesThisLapPassed}".padEnd(3)
+        scoreboard.getOrCreatePlayerScore(ScoreHolder.forNameOnly(player.playerName), timeDisplay, true).let{
+            it.set(position)
+            it.numberFormatOverride(FixedFormat(Component.literal(positionString)))
+        }
     }
 }

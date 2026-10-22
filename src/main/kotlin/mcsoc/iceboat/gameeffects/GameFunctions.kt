@@ -59,7 +59,11 @@ private fun spawnRandomChestBoat(level: ServerLevel, prespawn: (ChestBoat) -> Un
 }
 
 private fun ServerPlayer.onRaceFinished() {
-    this.controlledVehicle?.kill(this.level())
+    val level = this.level()
+    level.raceData.boatToDisplayMap[this.controlledVehicle?.uuid]?.let{
+        level.getEntity(it)?.kill(level)
+    }
+    this.controlledVehicle?.kill(level)
     this.setGameMode(GameType.SPECTATOR)
 }
 
