@@ -6,7 +6,7 @@ import com.mojang.serialization.codecs.RecordCodecBuilder
 import mcsoc.iceboat.datatrackers.eventsQueue
 import mcsoc.iceboat.datatrackers.playerData
 import mcsoc.iceboat.utils.CODEC
-import mcsoc.iceboat.utils.gameeffects.beginRace
+import mcsoc.iceboat.gameeffects.beginRace
 import net.minecraft.core.Holder
 import net.minecraft.network.chat.Component
 import net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket

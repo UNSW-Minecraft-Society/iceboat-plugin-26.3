@@ -2,8 +2,7 @@ package mcsoc.iceboat.eventhandlers
 
 import mcsoc.iceboat.datatrackers.eventsQueue
 import mcsoc.iceboat.datatrackers.gameClock
-import mcsoc.iceboat.utils.gameeffects.tickActivePlayers
-import mcsoc.iceboat.utils.gameeffects.tickPlayerNodeTracking
+import mcsoc.iceboat.gameeffects.tickActivePlayers
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents
 
 

@@ -1,4 +1,4 @@
-package mcsoc.iceboat.utils.gameeffects
+package mcsoc.iceboat.gameeffects
 
 import mcsoc.iceboat.datatrackers.eventsQueue
 import mcsoc.iceboat.datatrackers.gamedata.GamePhase

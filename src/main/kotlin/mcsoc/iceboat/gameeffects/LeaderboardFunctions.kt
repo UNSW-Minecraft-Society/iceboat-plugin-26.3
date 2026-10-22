@@ -1,4 +1,4 @@
-package mcsoc.iceboat.utils.gameeffects
+package mcsoc.iceboat.gameeffects
 
 import mcsoc.iceboat.datatrackers.mapData
 import mcsoc.iceboat.datatrackers.playerData
