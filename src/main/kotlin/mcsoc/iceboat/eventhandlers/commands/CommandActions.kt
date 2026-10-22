@@ -183,7 +183,7 @@ object CommandActions {
             level.playerData.activePlayers.add(player.uuid)
             
             player.sendSystemMessage(Component.literal("You have been signed up for the next race!"))
-            ctx.source.sendSuccess({Component.literal("Added ${player.displayName} to the next race.")}, true)
+            ctx.source.sendSuccess({Component.literal("Added ${player.displayName.string} to the next race.")}, true)
         }
         
         return 1
@@ -193,7 +193,7 @@ object CommandActions {
         for (player in EntityArgument.getPlayers(ctx, PLAYERS_ARGUMENT)) {
             if (ctx.source.level.playerData.activePlayers.remove(player.uuid)) {
                 player.sendSystemMessage(Component.literal("You are no longer signed up for the next race."))
-                ctx.source.sendSuccess({Component.literal("Removed ${player.displayName} from the next race.")}, true)
+                ctx.source.sendSuccess({Component.literal("Removed ${player.displayName.string} from the next race.")}, true)
             }
         }
         
