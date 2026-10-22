@@ -106,7 +106,7 @@ fun ServerPlayer.sendActionbarHUD(velocity: Double, time: Duration) {
 }
 
 
-fun ServerLevel.runBoatRidingCheck(playerId: UUID) {
+fun ServerLevel.ensureBoatRiding(playerId: UUID) {
     val player = this.server.playerList.getPlayer(playerId) ?: return
     if (player.vehicle == null) {
         val vehicle = this.getEntity(this.raceData.playerToBoatMap[playerId] ?: return) ?: return
@@ -120,7 +120,7 @@ fun ServerLevel.tickActivePlayers() {
     for (playerId in this.playerData.activePlayers) {
         if (this.raceData.phase.isActive) {
             tickPlayerNodeTracking(playerId, finishedPlayers)
-            runBoatRidingCheck(playerId)
+            ensureBoatRiding(playerId)
         }
     }
     broadcastFinishedPlayers(finishedPlayers)
@@ -227,6 +227,7 @@ fun ServerLevel.startRound(mapId: String): Int {
         
         spawnRandomChestBoat(this).also{
             it.teleportTo(this, startPos.x, startPos.y, startPos.z, emptySet(), firstNodeData.yawToNext, 0F, false)
+            this.setChunkForced(startPos.x.toInt() >> 4, startPos.z.toInt() >> 4, true)
             this.raceData.playerToBoatMap[player] = it.uuid
         }
         
@@ -248,16 +249,16 @@ fun ServerLevel.beginRace() {
     val mapData = this.mapData.getMapData(this.raceData.activeMapKey) ?: return
     val firstNodeData = level.mapData.getNode(mapData.firstNodeId) ?: return
 
-    val startPositions = mapData.startPositions.iterator()
     for (player in playerData.activePlayers.shuffled()) {
-        val startPos = startPositions.next()
         val playerData = playerData.getOrInitPlayerData(player).also {
             it.resetData()
             it.currNode = mapData.firstNodeId
         }
-    
-        // player.teleportTo(this, startPos.x, startPos.y, startPos.z, emptySet(), firstNodeData.yawToNext, 0F, false)
+        
         val vehicle = this.getEntity(this.raceData.playerToBoatMap[player]!!)!!
+        val chunkPos = vehicle.chunkPosition()
+        this.setChunkForced(chunkPos.x, chunkPos.z, false)
+        
         val player = this.server.playerList.getPlayer(player) ?: continue
         player.setGameMode(GameType.ADVENTURE)
         player.startRiding(vehicle, true, true)
