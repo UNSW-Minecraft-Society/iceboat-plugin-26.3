@@ -106,10 +106,22 @@ fun ServerPlayer.sendActionbarHUD(velocity: Double, time: Duration) {
 }
 
 
+fun ServerLevel.runBoatRidingCheck(playerId: UUID) {
+    val player = this.server.playerList.getPlayer(playerId) ?: return
+    if (player.vehicle == null) {
+        val vehicle = this.getEntity(this.raceData.playerToBoatMap[playerId] ?: return) ?: return
+        player.startRiding(vehicle, true, true)
+    }
+    
+}
+
 fun ServerLevel.tickActivePlayers() {
     val finishedPlayers: MutableCollection<UUID> = mutableListOf()
     for (playerId in this.playerData.activePlayers) {
-        if (this.raceData.phase.isActive) tickPlayerNodeTracking(playerId, finishedPlayers)
+        if (this.raceData.phase.isActive) {
+            tickPlayerNodeTracking(playerId, finishedPlayers)
+            runBoatRidingCheck(playerId)
+        }
     }
     broadcastFinishedPlayers(finishedPlayers)
 }
