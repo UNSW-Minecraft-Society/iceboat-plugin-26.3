@@ -15,6 +15,7 @@ import mcsoc.iceboat.datatrackers.timer.GameTimer
 import mcsoc.iceboat.datatrackers.timer.TickExposer
 import mcsoc.iceboat.datatrackers.gameevents.GameEventsExposer
 import mcsoc.iceboat.datatrackers.gameevents.GameEventsTracker
+import mcsoc.iceboat.utils.LevelScoreboardHolder
 import net.minecraft.resources.Identifier
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.util.datafix.DataFixTypes
@@ -94,6 +95,7 @@ sealed class LevelDataType<T : LevelTiedData>(val id: String, val default: () ->
     object GameClock : LevelDataType<GameTimer>("clock", ::GameTimer, GameTimer.CODEC)
     object RaceData : LevelDataType<GameDataTracker>("race", ::GameDataTracker, GameDataTracker.CODEC)
     object EventsQueue : LevelDataType<GameEventsTracker>("events", ::GameEventsTracker, GameEventsTracker.CODEC)
+    object LevelScores : LevelDataType<LevelScoreTracker>("scores", ::LevelScoreTracker)
 }
 
 // put other level-tied data getters here
@@ -102,3 +104,4 @@ val ServerLevel.playerData: PlayerDataExposer get() = this.levelTiedData.getData
 val ServerLevel.gameClock: TickExposer get() = this.levelTiedData.getDataOfType(LevelDataType.GameClock)
 val ServerLevel.raceData: GameDataExposer get() = this.levelTiedData.getDataOfType(LevelDataType.RaceData)
 val ServerLevel.eventsQueue: GameEventsExposer get() = this.levelTiedData.getDataOfType(LevelDataType.EventsQueue).also{it.level = this}
+val ServerLevel.levelScoreboard: LevelScoreboardHolder get() = this.levelTiedData.getDataOfType(LevelDataType.LevelScores).also{it.level = this}

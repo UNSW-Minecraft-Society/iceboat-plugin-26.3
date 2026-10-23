@@ -1,6 +1,7 @@
 package mcsoc.iceboat.gameeffects
 
 import mcsoc.iceboat.datatrackers.eventsQueue
+import mcsoc.iceboat.datatrackers.levelScoreboard
 import mcsoc.iceboat.datatrackers.mapData
 import mcsoc.iceboat.datatrackers.mapdata.NodeData
 import mcsoc.iceboat.datatrackers.playerData
@@ -124,7 +125,6 @@ fun ServerLevel.broadcastPositionVisually(playerId: UUID) {
     val vehicleId = level.raceData.playerToBoatMap[playerId] ?: return
     val display = this.getEntity(level.raceData.boatToDisplayMap[vehicleId] ?: return) ?: return
     this.getEntity(vehicleId)?.let{
-        // if (display.vehicle == null) display.startRiding(it, true, true)
         display.teleportTo(it.x, it.y, it.z)
     } ?: run {
         display.kill(this)
@@ -239,7 +239,7 @@ fun ServerLevel.startRound(mapId: String): Int {
         this.endRound()
     }
     
-    updateTimeDisplay(this)
+    this.updateTimeDisplay()
     
     val playerData = this.playerData
 
@@ -275,7 +275,8 @@ fun ServerLevel.startRound(mapId: String): Int {
 fun ServerLevel.beginRace() {
     val mapData = this.mapData.getMapData(this.raceData.activeMapKey) ?: return
     val firstNodeData = level.mapData.getNode(mapData.firstNodeId) ?: return
-
+    this.sendScoreboard()
+    
     for (player in playerData.activePlayers.shuffled()) {
         val playerData = playerData.getOrInitPlayerData(player).also {
             it.resetData()
@@ -318,5 +319,5 @@ fun ServerLevel.endRound() {
     this.playerData.activePlayers.clear()
     
     this.raceData.setInactive()
-    updateTimeDisplay(this)
+    this.updateTimeDisplay()
 }

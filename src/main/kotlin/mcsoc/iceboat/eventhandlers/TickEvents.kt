@@ -2,6 +2,7 @@ package mcsoc.iceboat.eventhandlers
 
 import mcsoc.iceboat.datatrackers.eventsQueue
 import mcsoc.iceboat.datatrackers.gameClock
+import mcsoc.iceboat.datatrackers.levelScoreboard
 import mcsoc.iceboat.gameeffects.tickActivePlayers
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents
 
@@ -9,6 +10,7 @@ import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents
 fun registerTickEvents() {
     registerGameClockTick()
     registerGameEventsTick()
+    registerLevelScoreboardTick()
     registerPlayerTrackerTick()
 }
 
@@ -18,6 +20,10 @@ fun registerGameClockTick() {
 
 fun registerGameEventsTick() {
     ServerTickEvents.START_LEVEL_TICK.register{ it.eventsQueue.tick() }
+}
+
+fun registerLevelScoreboardTick() {
+    ServerTickEvents.START_LEVEL_TICK.register{ it.levelScoreboard.tick() }
 }
 
 fun registerPlayerTrackerTick() {
