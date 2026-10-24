@@ -239,8 +239,6 @@ fun ServerLevel.startRound(mapId: String): Int {
         this.endRound()
     }
     
-    this.updateTimeDisplay()
-    
     val playerData = this.playerData
 
     // if not enough start positions
@@ -275,7 +273,8 @@ fun ServerLevel.startRound(mapId: String): Int {
 fun ServerLevel.beginRace() {
     val mapData = this.mapData.getMapData(this.raceData.activeMapKey) ?: return
     val firstNodeData = level.mapData.getNode(mapData.firstNodeId) ?: return
-    this.sendScoreboard()
+    this.sendScoreboardToAll()
+    this.updateTimeDisplay()
     
     for (player in playerData.activePlayers.shuffled()) {
         val playerData = playerData.getOrInitPlayerData(player).also {
@@ -315,9 +314,8 @@ fun ServerLevel.endRound() {
             player.sendSystemMessage(Component.literal("$posString: ${position.second}"))
         }
     }
-
-    this.playerData.activePlayers.clear()
     
     this.raceData.setInactive()
     this.updateTimeDisplay()
+    this.playerData.activePlayers.clear()
 }
