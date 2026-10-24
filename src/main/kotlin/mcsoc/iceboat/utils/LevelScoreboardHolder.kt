@@ -30,16 +30,19 @@ interface LevelScoreboardHolder {
     val scoreboard: Scoreboard
     
     fun tryAddObjective(objectiveName: String, displayName: Component, numberFormat: NumberFormat?): Objective {
-        return scoreboard.getObjective(objectiveName) ?: scoreboard.addObjective(
-            objectiveName, ObjectiveCriteria.DUMMY, displayName,
-            ObjectiveCriteria.RenderType.INTEGER, true, numberFormat
-        )
+        return scoreboard.getObjective(objectiveName) ?: run {
+            scoreboard.addObjective(
+                objectiveName, ObjectiveCriteria.DUMMY, displayName,
+                ObjectiveCriteria.RenderType.INTEGER, true, numberFormat
+            ).also{
+                dirtyObjectives.add(objectiveName)
+            }
+        }
     }
     
     private fun getOrInitObjective(objectiveName: String): Objective {
-        return scoreboard.getObjective(objectiveName) ?: tryAddObjective(
-            objectiveName, Component.literal(objectiveName), null
-        )
+        return scoreboard.getObjective(objectiveName) ?: throw IllegalStateException()
+            // tryAddObjective(objectiveName, Component.literal(objectiveName), null)
     }
 
     private fun getScoreAccess(objectiveName: String, player: Player): ScoreAccess {

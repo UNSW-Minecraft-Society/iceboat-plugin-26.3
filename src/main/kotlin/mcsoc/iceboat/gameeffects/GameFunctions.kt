@@ -236,7 +236,7 @@ fun ServerLevel.startRound(mapId: String): Int {
     val firstNodeData = level.mapData.getNode(mapData.firstNodeId) ?: return 2
         
     if (this.raceData.phase.isRunning) {
-        this.endRound()
+        this.endRound(true)
     }
     
     val playerData = this.playerData
@@ -273,10 +273,10 @@ fun ServerLevel.startRound(mapId: String): Int {
 fun ServerLevel.beginRace() {
     val mapData = this.mapData.getMapData(this.raceData.activeMapKey) ?: return
     val firstNodeData = level.mapData.getNode(mapData.firstNodeId) ?: return
-    this.sendScoreboardToAll()
     this.updateTimeDisplay()
+    this.sendScoreboardToAll()
     
-    for (player in playerData.activePlayers.shuffled()) {
+    for (player in playerData.activePlayers) {
         val playerData = playerData.getOrInitPlayerData(player).also {
             it.resetData()
             it.currNode = mapData.firstNodeId
@@ -293,7 +293,7 @@ fun ServerLevel.beginRace() {
     this.raceData.startRace()
 }
 
-fun ServerLevel.endRound() {
+fun ServerLevel.endRound(keepPlayers: Boolean = false) {
     val finalPositions: MutableList<Pair<UInt, String>> = mutableListOf()
     for (playerData in this.playerData.activePlayerData) {
         if (playerData.lapsCompleted >= this.raceData.numLaps) {
@@ -317,5 +317,5 @@ fun ServerLevel.endRound() {
     
     this.raceData.setInactive()
     this.updateTimeDisplay()
-    this.playerData.activePlayers.clear()
+    if (!keepPlayers) this.playerData.activePlayers.clear()
 }
