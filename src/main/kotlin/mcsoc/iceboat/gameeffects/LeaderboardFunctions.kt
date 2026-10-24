@@ -75,7 +75,10 @@ fun ServerLevel.updateTimeDisplay() {
         val playerData = this.playerData.getOrInitPlayerData(playerId)
         
         val position = (playerData.nodesPassed * POSITION_STEP - playerData.nodePosition).toInt()
-        val positionString = "${playerData.lapsCompleted}".padStart(2) + " | " + "${playerData.nodesThisLapPassed}".padEnd(3)
+        val positionString = if (playerData.lapsCompleted < this.raceData.numLaps) {
+            "${playerData.lapsCompleted + 1u}".padStart(2) + " | " + "${playerData.nodesThisLapPassed}".padEnd(3)
+        } else { "FINISHED" }
+        
         val numberFormat = FixedFormat(Component.literal(positionString))
         
         scoreboard.setPlayerScore(SIDEBAR_TIME_ID, player, position, numberFormat)
