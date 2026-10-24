@@ -1,5 +1,6 @@
 package mcsoc.iceboat.utils
 
+import mcsoc.iceboat.IceboatPlugin
 import net.minecraft.network.chat.Component
 import net.minecraft.network.chat.numbers.NumberFormat
 import net.minecraft.network.protocol.game.ClientboundSetDisplayObjectivePacket
@@ -10,6 +11,7 @@ import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.entity.player.Player
 import net.minecraft.world.scores.DisplaySlot
 import net.minecraft.world.scores.Objective
+import net.minecraft.world.scores.PlayerScoreEntry
 import net.minecraft.world.scores.ScoreAccess
 import net.minecraft.world.scores.ScoreHolder
 import net.minecraft.world.scores.Scoreboard
@@ -22,6 +24,7 @@ import java.util.UUID
 interface LevelScoreboardHolder {
     var level: ServerLevel
     val dirtyObjectives: MutableCollection<String>
+    val dirtyScores: MutableMap<String, MutableCollection<String>>
     
     val trackingPlayers: MutableCollection<UUID>
     val scoreboard: Scoreboard
@@ -49,7 +52,9 @@ interface LevelScoreboardHolder {
             it.set(score)
             it.numberFormatOverride(numberFormat)
         }
-        dirtyObjectives.add(objectiveName)
+        dirtyScores[objectiveName]?.add(player.gameProfile.name) ?: run {
+            dirtyScores[objectiveName] = mutableListOf(player.gameProfile.name)
+        }
     }
     
     fun clearScores(objectiveName: String) {
@@ -82,9 +87,9 @@ interface LevelScoreboardHolder {
         )
     }
     
-    fun sendScoreboardValues(objectiveName: String, player: ServerPlayer) {
+    fun sendScoreboardValues(objectiveName: String, player: ServerPlayer, scores: Iterable<PlayerScoreEntry>) {
         val objective = getOrInitObjective(objectiveName)
-        for (score in scoreboard.listPlayerScores(objective)) {
+        for (score in scores) {
             player.connection.send(
                 ClientboundSetScorePacket(
                     score.owner,
@@ -97,6 +102,11 @@ interface LevelScoreboardHolder {
         }
     }
     
+    fun sendAllScoreboardValues(objectiveName: String, player: ServerPlayer) {
+        val objective = getOrInitObjective(objectiveName)
+        sendScoreboardValues(objectiveName, player, scoreboard.listPlayerScores(objective))
+    }
+    
     fun sendScoreboardToTracking(objectiveName: String, displaySlot: DisplaySlot) {
         for (playerId in trackingPlayers) {
             val player = level.server.playerList.getPlayer(playerId) ?: continue
@@ -104,18 +114,32 @@ interface LevelScoreboardHolder {
         }
     }
     
-    fun sendScoreboardValuesToTracking(objectiveName: String) {
+    fun sendScoreboardValuesToTracking(objectiveName: String, scores: Iterable<PlayerScoreEntry>) {
         for (playerId in trackingPlayers) {
             val player = level.server.playerList.getPlayer(playerId) ?: continue
-            sendScoreboardValues(objectiveName, player)
+            sendScoreboardValues(objectiveName, player, scores)
+        }
+    }
+    
+    fun sendAllScoreboardValuesToTracking(objectiveName: String) {
+        for (playerId in trackingPlayers) {
+            val player = level.server.playerList.getPlayer(playerId) ?: continue
+            sendAllScoreboardValues(objectiveName, player)
         }
     }
     
     
     fun tick() {
         for (objective in dirtyObjectives) {
-            sendScoreboardValuesToTracking(objective)
+            sendAllScoreboardValuesToTracking(objective)
             dirtyObjectives.remove(objective)
+        }
+        
+        for ((objectiveName, scores) in dirtyScores) {
+            val objective = getOrInitObjective(objectiveName)
+            val scores = scoreboard.listPlayerScores(objective).filter{it.owner in scores}
+            sendScoreboardValuesToTracking(objectiveName, scores)
+            dirtyScores.remove(objectiveName)
         }
     }
 }

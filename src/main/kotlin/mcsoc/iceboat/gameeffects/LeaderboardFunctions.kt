@@ -49,10 +49,15 @@ fun ServerPlayer.trackTimeAtNode(lap: UInt, nodeId: UUID, splitTime: Duration)
     = this.level().trackPlayerTimeAtNode(lap, this.uuid, nodeId, splitTime)
 
     
-fun ServerLevel.sendScoreboard() {
-    this.levelScoreboard.sendScoreboardToTracking(SIDEBAR_TIME_ID, DisplaySlot.SIDEBAR)
+fun ServerLevel.sendScoreboardToPlayer(player: ServerPlayer) {
+    this.levelScoreboard.sendScoreboard(SIDEBAR_TIME_ID, DisplaySlot.SIDEBAR, player)
+    this.levelScoreboard.sendAllScoreboardValues(SIDEBAR_TIME_ID, player)
 }
-    
+fun ServerLevel.sendScoreboardToAll() {
+    this.levelScoreboard.sendScoreboardToTracking(SIDEBAR_TIME_ID, DisplaySlot.SIDEBAR)
+    this.levelScoreboard.sendAllScoreboardValuesToTracking(SIDEBAR_TIME_ID)
+}
+
 // 
 //  NB this is **currently** server-tied rather than level-tied
 fun ServerLevel.updateTimeDisplay() {

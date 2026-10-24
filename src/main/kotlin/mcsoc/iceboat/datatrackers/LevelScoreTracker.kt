@@ -11,6 +11,7 @@ class LevelScoreTracker : LevelTiedData(), LevelScoreboardHolder {
     
     override lateinit var level: ServerLevel
     override val dirtyObjectives: MutableCollection<String> = mutableSetOf()
+    override val dirtyScores: MutableMap<String, MutableCollection<String>> = mutableMapOf()
     
     override val trackingPlayers: MutableCollection<UUID> get() = level.playerData.activePlayers
     override val scoreboard: Scoreboard = Scoreboard()
