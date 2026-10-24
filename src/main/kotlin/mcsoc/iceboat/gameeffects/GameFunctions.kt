@@ -1,7 +1,6 @@
 package mcsoc.iceboat.gameeffects
 
 import mcsoc.iceboat.datatrackers.eventsQueue
-import mcsoc.iceboat.datatrackers.levelScoreboard
 import mcsoc.iceboat.datatrackers.mapData
 import mcsoc.iceboat.datatrackers.mapdata.NodeData
 import mcsoc.iceboat.datatrackers.playerData
@@ -12,13 +11,18 @@ import net.minecraft.network.chat.FontDescription
 import net.minecraft.network.chat.Style
 import net.minecraft.network.chat.TextColor
 import net.minecraft.network.protocol.game.ClientboundAddEntityPacket
+import net.minecraft.network.protocol.game.ClientboundEntityEventPacket
 import net.minecraft.network.protocol.game.ClientboundLevelParticlesPacket
+import net.minecraft.network.protocol.game.ClientboundRemoveEntitiesPacket
 import net.minecraft.network.protocol.game.ClientboundSetActionBarTextPacket
+import net.minecraft.network.protocol.game.ClientboundSetEntityDataPacket
 import net.minecraft.resources.Identifier
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.util.Mth
 import net.minecraft.world.entity.Display
+import net.minecraft.world.entity.Entity
+import net.minecraft.world.entity.EntityEvent
 import net.minecraft.world.entity.EntityType
 import net.minecraft.world.entity.EntityTypes
 import net.minecraft.world.entity.vehicle.boat.ChestBoat
@@ -55,19 +59,17 @@ private fun spawnRandomChestBoat(level: ServerLevel, prespawn: (ChestBoat) -> Un
     return ChestBoat(chestBoatTypes.random(), level){Items.AIR}.also(prespawn)
         .also(level::addFreshEntityWithPassengers)
         .also {
-            val display = Display.BlockDisplay(EntityTypes.BLOCK_DISPLAY, level)
-            display.blockState = Blocks.LIGHTNING_ROD.waxed.unaffected.defaultBlockState()
-            level.addFreshEntity(display)
-            level.raceData.boatToDisplayMap[it.uuid] = display.uuid
+            level.raceData.boatToDisplayMap[it.uuid] = Pair(it.id + 1000, UUID.randomUUID())
         }
 }
 
 private fun ServerPlayer.onRaceFinished() {
     val level = this.level()
-    level.raceData.boatToDisplayMap[this.controlledVehicle?.uuid]?.let{
-        level.getEntity(it)?.kill(level)
-    }
+    
     this.controlledVehicle?.kill(level)
+    // "kill" any leftover indicators
+    level.broadcastPositionVisually(this.uuid)
+    
     this.setGameMode(GameType.SPECTATOR)
 }
 
@@ -124,13 +126,41 @@ fun ServerPlayer.sendActionbarHUD(velocity: Double, time: Duration) {
 }
 
 
+// Broadcast "true" boat position via copper rod block display
 fun ServerLevel.broadcastPositionVisually(playerId: UUID) {
-    val vehicleId = level.raceData.playerToBoatMap[playerId] ?: return
-    val display = this.getEntity(level.raceData.boatToDisplayMap[vehicleId] ?: return) ?: return
+    val vehicleId = this.raceData.playerToBoatMap[playerId] ?: return
+    
+    val displayIds = this.raceData.boatToDisplayMap[vehicleId] ?: return
+    val display = Display.BlockDisplay(EntityTypes.BLOCK_DISPLAY, this).also{
+        it.blockState = Blocks.LIGHTNING_ROD.waxed.unaffected.defaultBlockState()
+    }
+    
     this.getEntity(vehicleId)?.let{
-        display.teleportTo(it.x, it.y, it.z)
+        for (player in this.server.playerList.players) {
+            // if (player.uuid == playerId) continue
+            player.connection.send(
+                ClientboundAddEntityPacket(
+                    displayIds.first, displayIds.second, 
+                    it.x, it.y, it.z, 0F, 0F,
+                    EntityTypes.BLOCK_DISPLAY, 0,
+                    it.knownMovement, 0.0
+                )
+            )
+            player.connection.send(
+                ClientboundSetEntityDataPacket(
+                    displayIds.first,
+                    display.entityData.nonDefaultValues!!
+                )
+            )
+        }
     } ?: run {
-        display.kill(this)
+        for (player in this.server.playerList.players) {
+            player.connection.send(
+                ClientboundRemoveEntitiesPacket(
+                    displayIds.first
+                )
+            )
+        }
     }
 }
 
@@ -317,7 +347,7 @@ fun ServerLevel.endRound(keepPlayers: Boolean = false) {
             player.sendSystemMessage(Component.literal("$posString: ${position.second}"))
         }
     }
-    
+
     this.raceData.setInactive()
     this.updateTimeDisplay()
     if (!keepPlayers) this.playerData.activePlayers.clear()

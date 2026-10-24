@@ -77,7 +77,7 @@ fun ServerLevel.updateTimeDisplay() {
         val position = (playerData.nodesPassed * POSITION_STEP - playerData.nodePosition).toInt()
         val positionString = if (playerData.lapsCompleted < this.raceData.numLaps) {
             "${playerData.lapsCompleted + 1u}".padStart(2) + " | " + "${playerData.nodesThisLapPassed}".padEnd(3)
-        } else { "FINISHED" }
+        } else { "FIN" }
         
         val numberFormat = FixedFormat(Component.literal(positionString))
         
