@@ -32,6 +32,9 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
 
+// The finish position assigned to players who didn't finish on game end
+private const val DNF_POSITION = 999u
+
 // This isn't level-tied, but I don't forsee any actual problems.
 private val oldPosMap: MutableMap<UUID, ArrayDeque<Vec3>> = mutableMapOf()
 
@@ -299,7 +302,7 @@ fun ServerLevel.endRound(keepPlayers: Boolean = false) {
         if (playerData.lapsCompleted >= this.raceData.numLaps) {
             finalPositions.add(Pair(playerData.nodePosition + 1u, playerData.playerName))
         } else {
-            finalPositions.add(Pair(999u, playerData.playerName))
+            finalPositions.add(Pair(DNF_POSITION, playerData.playerName))
         }
         
         // clear player data
@@ -310,7 +313,7 @@ fun ServerLevel.endRound(keepPlayers: Boolean = false) {
     for (player in this.playerData.activePlayers.mapNotNull(this.server.playerList::getPlayer)) {
         player.onRaceFinished()
         for (position in finalPositions) {
-            val posString = if (position.first != 999u) "${position.first}".padStart(3) else "DNF"
+            val posString = if (position.first != DNF_POSITION) "${position.first}".padStart(3) else "DNF"
             player.sendSystemMessage(Component.literal("$posString: ${position.second}"))
         }
     }
