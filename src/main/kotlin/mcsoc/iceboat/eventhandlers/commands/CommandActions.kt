@@ -137,7 +137,8 @@ object CommandActions {
     fun startGame(ctx: CommandContext<CommandSourceStack>): Int {
         val source = ctx.source
         val mapId = StringArgumentType.getString(ctx, MAP_NAME_ARGUMENT)
-        return when (source.level.startRound(mapId)) {
+        val numLaps = IntegerArgumentType.getInteger(ctx, INT_COUNT_ARGUMENT).toUInt()
+        return when (source.level.startRound(mapId, numLaps)) {
             0 -> {
                 source.sendSuccess({Component.literal("Started a new round on map '$mapId.'")}, true)
                 1

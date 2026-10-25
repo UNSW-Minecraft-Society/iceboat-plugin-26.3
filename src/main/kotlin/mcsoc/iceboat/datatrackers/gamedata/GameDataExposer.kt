@@ -56,7 +56,7 @@ interface GameDataExposer {
     fun startRace()
     fun setInactive()
     
-    val numLaps: UInt get() = 3u
+    var numLaps: UInt
     
     val nodeProgress: List<Map<UUID, LapProgress>>
     fun getNodeProgress(node: UUID, lap: Int): LapProgress? {
