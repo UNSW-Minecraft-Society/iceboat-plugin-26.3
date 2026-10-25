@@ -95,7 +95,7 @@ sealed class LevelDataType<T : LevelTiedData>(val id: String, val default: () ->
     object GameClock : LevelDataType<GameTimer>("clock", ::GameTimer, GameTimer.CODEC)
     object RaceData : LevelDataType<GameDataTracker>("race", ::GameDataTracker, GameDataTracker.CODEC)
     object EventsQueue : LevelDataType<GameEventsTracker>("events", ::GameEventsTracker, GameEventsTracker.CODEC)
-    object LevelScores : LevelDataType<LevelScoreTracker>("scores", ::LevelScoreTracker)
+    object LevelScores : LevelDataType<LevelScoreTracker>("scores", ::LevelScoreTracker, LevelScoreTracker.CODEC)
 }
 
 // put other level-tied data getters here
