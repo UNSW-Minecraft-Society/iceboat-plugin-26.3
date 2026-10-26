@@ -39,6 +39,9 @@ import kotlin.time.Duration.Companion.seconds
 // The finish position assigned to players who didn't finish on game end
 private const val DNF_POSITION = 999u
 
+// Number of ticks to average player velocities over. Higher => smoother, but also less responsive
+private const val VELOCITY_AVERAGE_TICKS = 5
+
 // This isn't level-tied, but I don't forsee any actual problems.
 private val oldPosMap: MutableMap<UUID, ArrayDeque<Vec3>> = mutableMapOf()
 
@@ -223,19 +226,27 @@ fun ServerLevel.tickPlayerNodeTracking(playerId: UUID, finishedPlayers: MutableC
             player.displayNextCheckpoint(nextNode)
         }
         
-        // TODO sum last 3 deltas instead of just last
+        // find average velocity over last N ticks
+        val iter = it.iterator()
+        var curr: Vec3 = iter.next()
+        val diffs: MutableCollection<Vec3> = mutableListOf()
+        while (iter.hasNext()) {
+            curr = iter.next().also{
+                diffs.add(it.subtract(curr))
+            }
+        }
         //  *72 to convert from m/t to km/h
-        val velocity = it.last().subtract(player.position()).length() * 72.0          
+        val velocity: Double = diffs.sumOf(Vec3::length) * 72.0 / it.size  
         val time = playerData.timer.time
         player.sendActionbarHUD(velocity, time)
         
-        
-    } ?: run { oldPosMap[playerId] = ArrayDeque(3) }
+    } ?: run { oldPosMap[playerId] = ArrayDeque(VELOCITY_AVERAGE_TICKS) }
+    
     oldPosMap[playerId]?.let{
+        if (it.size > VELOCITY_AVERAGE_TICKS) it.removeFirstOrNull()
+        else if (it.isEmpty()) it.add(player.position())
+        
         it.add(player.position())
-        if (it.size > 3)  {
-            it.removeFirstOrNull()
-        }
     }        
 }
 
