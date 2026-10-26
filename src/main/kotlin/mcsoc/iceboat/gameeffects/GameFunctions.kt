@@ -319,6 +319,7 @@ fun ServerLevel.beginRace() {
     val mapData = this.mapData.getMapData(this.raceData.activeMapKey) ?: return
     val firstNodeData = level.mapData.getNode(mapData.firstNodeId) ?: return
     this.updateTimeDisplay()
+    this.addLapsIndicatorToSidebar()
     this.sendScoreboardToAll()
     
     for (player in playerData.activePlayers) {

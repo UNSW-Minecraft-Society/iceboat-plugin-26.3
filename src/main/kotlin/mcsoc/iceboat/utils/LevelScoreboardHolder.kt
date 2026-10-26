@@ -1,6 +1,5 @@
 package mcsoc.iceboat.utils
 
-import mcsoc.iceboat.IceboatPlugin
 import net.minecraft.network.chat.Component
 import net.minecraft.network.chat.numbers.NumberFormat
 import net.minecraft.network.protocol.game.ClientboundSetDisplayObjectivePacket
@@ -45,13 +44,24 @@ interface LevelScoreboardHolder {
             // tryAddObjective(objectiveName, Component.literal(objectiveName), null)
     }
 
-    private fun getScoreAccess(objectiveName: String, player: Player): ScoreAccess {
+    private fun getDummyScoreAccess(objectiveName: String, dummy: String): ScoreAccess {
+        return scoreboard.getOrCreatePlayerScore(ScoreHolder.forNameOnly(dummy), getOrInitObjective(objectiveName))
+    }
+    private fun getPlayerScoreAccess(objectiveName: String, player: Player): ScoreAccess {
         return scoreboard.getOrCreatePlayerScore(ScoreHolder.fromGameProfile(player.gameProfile), getOrInitObjective(objectiveName))
     }
-    
-    
+
+    fun setDummyScore(objectiveName: String, dummyName: String, score: Int, numberFormat: NumberFormat? = null) {
+        getDummyScoreAccess(objectiveName, dummyName).also{
+            it.set(score)
+            it.numberFormatOverride(numberFormat)
+        }
+        dirtyScores[objectiveName]?.add(dummyName) ?: run {
+            dirtyScores[objectiveName] = mutableListOf(dummyName)
+        }
+    }
     fun setPlayerScore(objectiveName: String, player: Player, score: Int, numberFormat: NumberFormat? = null) {
-        getScoreAccess(objectiveName, player).also{
+        getPlayerScoreAccess(objectiveName, player).also{
             it.set(score)
             it.numberFormatOverride(numberFormat)
         }
@@ -71,11 +81,11 @@ interface LevelScoreboardHolder {
                 )
             )
         }
-        dirtyObjectives.add(objectiveName)
+        scoreboard.removeObjective(objective)
     }
     
     
-    fun sendScoreboard(objectiveName: String, displaySlot: DisplaySlot, player: ServerPlayer) {
+    fun sendScoreboard(objectiveName: String, displaySlots: Iterable<DisplaySlot>, player: ServerPlayer) {
         val objective = getOrInitObjective(objectiveName)
         player.connection.send(
             ClientboundSetObjectivePacket(
@@ -83,11 +93,13 @@ interface LevelScoreboardHolder {
                 ClientboundSetObjectivePacket.METHOD_ADD
             )
         )
-        player.connection.send(
-            ClientboundSetDisplayObjectivePacket(
-                displaySlot, objective
+        for (slot in displaySlots) {
+            player.connection.send(
+                ClientboundSetDisplayObjectivePacket(
+                    slot, objective
+                )
             )
-        )
+        }
     }
     
     fun sendScoreboardValues(objectiveName: String, player: ServerPlayer, scores: Iterable<PlayerScoreEntry>) {
@@ -110,10 +122,10 @@ interface LevelScoreboardHolder {
         sendScoreboardValues(objectiveName, player, scoreboard.listPlayerScores(objective))
     }
     
-    fun sendScoreboardToTracking(objectiveName: String, displaySlot: DisplaySlot) {
+    fun sendScoreboardToTracking(objectiveName: String, displaySlots: Iterable<DisplaySlot>) {
         for (playerId in trackingPlayers) {
             val player = level.server.playerList.getPlayer(playerId) ?: continue
-            sendScoreboard(objectiveName, displaySlot, player)
+            sendScoreboard(objectiveName, displaySlots, player)
         }
     }
     

@@ -4,6 +4,7 @@ import mcsoc.iceboat.datatrackers.levelScoreboard
 import mcsoc.iceboat.datatrackers.mapData
 import mcsoc.iceboat.datatrackers.playerData
 import mcsoc.iceboat.datatrackers.raceData
+import net.minecraft.ChatFormatting
 import net.minecraft.network.chat.Component
 import net.minecraft.network.chat.numbers.BlankFormat
 import net.minecraft.network.chat.numbers.FixedFormat
@@ -16,15 +17,22 @@ import kotlin.time.Duration
 // distance between nodes on the scoreboard (eg node 1 is 1-40, node 2 is at 41-80, ...)
 //  This should be bigger than the expected number of players
 private const val POSITION_STEP: UInt = 40u
-// the name of the scoreboard (this does not matter, and can be changed whenever)
+// the id of the scoreboard (this does not matter, and can be changed whenever)
 private const val SIDEBAR_TIME_ID = "positions"
+// What to display as position scoreboard title
+private val SIDEBAR_POSITIONS_DISPLAY = Component.literal("Positions")
+        .withStyle(ChatFormatting.BOLD)
+        .withStyle(ChatFormatting.GRAY)
+// An arbitrary highest scoreboard value (so it shows at top). No regular score should exceed this value!
+private const val HIGHEST_SCOREBOARD_VALUE = 99999
 
-/* Arguments
- *  level - The world 
+/* Handle updating player score and sending feedback when they go over a race node
+ * Arguments
+ *  level - The world (REVOLVING)
  */
 fun ServerLevel.trackPlayerTimeAtNode(lap: UInt, playerId: UUID, nodeId: UUID, splitTime: Duration) {
     val nextNode = this.mapData.getNode(nodeId) ?: return
-    
+
     this.playerData.getOrInitPlayerData(playerId).nodePosition = this.raceData.getNodeProgress(nodeId, lap)?.numPassed ?: 0u
     val isNewFastestTime = this.raceData.trackPlayerPassed(nodeId, lap, playerId, splitTime)
     
@@ -50,20 +58,29 @@ fun ServerPlayer.trackTimeAtNode(lap: UInt, nodeId: UUID, splitTime: Duration)
 
     
 fun ServerLevel.sendScoreboardToPlayer(player: ServerPlayer) {
-    this.levelScoreboard.sendScoreboard(SIDEBAR_TIME_ID, DisplaySlot.SIDEBAR, player)
+    this.levelScoreboard.sendScoreboard(SIDEBAR_TIME_ID, listOf(DisplaySlot.SIDEBAR, DisplaySlot.LIST), player)
     this.levelScoreboard.sendAllScoreboardValues(SIDEBAR_TIME_ID, player)
 }
 fun ServerLevel.sendScoreboardToAll() {
-    this.levelScoreboard.sendScoreboardToTracking(SIDEBAR_TIME_ID, DisplaySlot.SIDEBAR)
+    this.levelScoreboard.sendScoreboardToTracking(SIDEBAR_TIME_ID, listOf(DisplaySlot.SIDEBAR, DisplaySlot.LIST))
     this.levelScoreboard.sendAllScoreboardValuesToTracking(SIDEBAR_TIME_ID)
 }
 
-// 
-//  NB this is **currently** server-tied rather than level-tied
-fun ServerLevel.updateTimeDisplay() {
-    // TODO switch from using a "real" scoreboard to using packets
+// set the LAPS display at the top of the sidebar
+fun ServerLevel.addLapsIndicatorToSidebar() {
     val scoreboard = this.levelScoreboard
-    scoreboard.tryAddObjective(SIDEBAR_TIME_ID, Component.literal("Positions"), BlankFormat.INSTANCE)
+    scoreboard.tryAddObjective(SIDEBAR_TIME_ID, SIDEBAR_POSITIONS_DISPLAY, BlankFormat.INSTANCE)
+    
+    val numberFormat = FixedFormat(Component.literal("${this.raceData.numLaps.toInt()}".padStart(2).padEnd(8))
+        .withStyle(ChatFormatting.GRAY))
+
+    scoreboard.setDummyScore(SIDEBAR_TIME_ID, "LAPS:", HIGHEST_SCOREBOARD_VALUE, numberFormat)
+}
+
+// Refresh all player position indicators on sidebar based on player's position
+fun ServerLevel.updateTimeDisplay() {
+    val scoreboard = this.levelScoreboard
+    scoreboard.tryAddObjective(SIDEBAR_TIME_ID, SIDEBAR_POSITIONS_DISPLAY, BlankFormat.INSTANCE)
     
     if (this.raceData.activeMapKey.isEmpty()) {
         scoreboard.clearScores(SIDEBAR_TIME_ID)
@@ -76,11 +93,14 @@ fun ServerLevel.updateTimeDisplay() {
         
         val position = (playerData.nodesPassed * POSITION_STEP - playerData.nodePosition).toInt()
         val positionString = if (playerData.lapsCompleted < this.raceData.numLaps) {
-            "${playerData.lapsCompleted + 1u}".padStart(2) + " | " + "${playerData.nodesThisLapPassed}".padEnd(3)
-        } else { "FIN" }
+            Component.literal("${playerData.lapsCompleted + 1u}".padStart(2) + " | " + "${playerData.nodesThisLapPassed}".padEnd(3))
+        } else { 
+            Component.literal("FIN".padEnd(8))
+                .withStyle(ChatFormatting.ITALIC)
+                .withStyle(ChatFormatting.GREEN)
+        }
         
-        val numberFormat = FixedFormat(Component.literal(positionString))
-        
+        val numberFormat = FixedFormat(positionString)
         scoreboard.setPlayerScore(SIDEBAR_TIME_ID, player, position, numberFormat)
     }
 }
