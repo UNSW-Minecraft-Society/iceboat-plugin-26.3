@@ -96,6 +96,11 @@ fun registerCommands() {
                     )
                 )
             )
+            .then(Commands.literal("fix")
+                .then(MAP_NAME_ARGUMENT_NODE
+                    .executes(CommandActions::fixMap)
+                )
+            )
             .then(Commands.literal("clear")
                 .then(MAP_NAME_ARGUMENT_NODE
                     .executes(CommandActions::clearMap)

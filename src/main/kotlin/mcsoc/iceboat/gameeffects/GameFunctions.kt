@@ -1,6 +1,7 @@
 package mcsoc.iceboat.gameeffects
 
 import mcsoc.iceboat.datatrackers.eventsQueue
+import mcsoc.iceboat.datatrackers.levelBossBars
 import mcsoc.iceboat.datatrackers.mapData
 import mcsoc.iceboat.datatrackers.mapdata.NodeData
 import mcsoc.iceboat.datatrackers.playerData
@@ -11,7 +12,6 @@ import net.minecraft.network.chat.FontDescription
 import net.minecraft.network.chat.Style
 import net.minecraft.network.chat.TextColor
 import net.minecraft.network.protocol.game.ClientboundAddEntityPacket
-import net.minecraft.network.protocol.game.ClientboundEntityEventPacket
 import net.minecraft.network.protocol.game.ClientboundLevelParticlesPacket
 import net.minecraft.network.protocol.game.ClientboundRemoveEntitiesPacket
 import net.minecraft.network.protocol.game.ClientboundSetActionBarTextPacket
@@ -21,8 +21,6 @@ import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.util.Mth
 import net.minecraft.world.entity.Display
-import net.minecraft.world.entity.Entity
-import net.minecraft.world.entity.EntityEvent
 import net.minecraft.world.entity.EntityType
 import net.minecraft.world.entity.EntityTypes
 import net.minecraft.world.entity.vehicle.boat.ChestBoat
@@ -72,6 +70,8 @@ private fun ServerPlayer.onRaceFinished() {
     this.controlledVehicle?.kill(level)
     // "kill" any leftover indicators
     level.broadcastPositionVisually(this.uuid)
+    
+    level.levelBossBars.removePlayerFrom(this.uuid, this)
     
     this.setGameMode(GameType.SPECTATOR)
 }
@@ -184,6 +184,7 @@ fun ServerLevel.tickActivePlayers() {
             ensureBoatRiding(playerId)
             broadcastPositionVisually(playerId)
             tickPlayerNodeTracking(playerId, finishedPlayers)
+            updateProgressBarDisplay(playerId)
         }
     }
     broadcastFinishedPlayers(finishedPlayers)
@@ -320,19 +321,20 @@ fun ServerLevel.beginRace() {
     val firstNodeData = level.mapData.getNode(mapData.firstNodeId) ?: return
     this.updateTimeDisplay()
     this.addLapsIndicatorToSidebar()
-    this.sendScoreboardToAll()
     
-    for (player in playerData.activePlayers) {
-        val playerData = playerData.getOrInitPlayerData(player).also {
+    for (playerId in playerData.activePlayers) {
+        val playerData = playerData.getOrInitPlayerData(playerId).also {
             it.resetData()
             it.currNode = mapData.firstNodeId
         }
+        this.initProgressBarFor(playerId)
         
-        val vehicle = this.getEntity(this.raceData.playerToBoatMap[player]!!)!!
+        val vehicle = this.getEntity(this.raceData.playerToBoatMap[playerId]!!)!!
         val chunkPos = vehicle.chunkPosition()
         this.setChunkForced(chunkPos.x, chunkPos.z, false)
         
-        val player = this.server.playerList.getPlayer(player) ?: continue
+        val player = this.server.playerList.getPlayer(playerId) ?: continue
+        this.sendScoreboardToPlayer(player)
         player.setGameMode(GameType.ADVENTURE)
         player.startRiding(vehicle, true, true)
     }

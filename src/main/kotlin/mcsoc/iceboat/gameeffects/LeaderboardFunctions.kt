@@ -1,5 +1,7 @@
 package mcsoc.iceboat.gameeffects
 
+import mcsoc.iceboat.IceboatPlugin
+import mcsoc.iceboat.datatrackers.levelBossBars
 import mcsoc.iceboat.datatrackers.levelScoreboard
 import mcsoc.iceboat.datatrackers.mapData
 import mcsoc.iceboat.datatrackers.playerData
@@ -8,11 +10,13 @@ import net.minecraft.ChatFormatting
 import net.minecraft.network.chat.Component
 import net.minecraft.network.chat.numbers.BlankFormat
 import net.minecraft.network.chat.numbers.FixedFormat
+import net.minecraft.network.protocol.game.ClientboundBossEventPacket
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.scores.DisplaySlot
 import java.util.UUID
 import kotlin.time.Duration
+
 
 // distance between nodes on the scoreboard (eg node 1 is 1-40, node 2 is at 41-80, ...)
 //  This should be bigger than the expected number of players
@@ -61,10 +65,6 @@ fun ServerLevel.sendScoreboardToPlayer(player: ServerPlayer) {
     this.levelScoreboard.sendScoreboard(SIDEBAR_TIME_ID, listOf(DisplaySlot.SIDEBAR, DisplaySlot.LIST), player)
     this.levelScoreboard.sendAllScoreboardValues(SIDEBAR_TIME_ID, player)
 }
-fun ServerLevel.sendScoreboardToAll() {
-    this.levelScoreboard.sendScoreboardToTracking(SIDEBAR_TIME_ID, listOf(DisplaySlot.SIDEBAR, DisplaySlot.LIST))
-    this.levelScoreboard.sendAllScoreboardValuesToTracking(SIDEBAR_TIME_ID)
-}
 
 // set the LAPS display at the top of the sidebar
 fun ServerLevel.addLapsIndicatorToSidebar() {
@@ -94,8 +94,8 @@ fun ServerLevel.updateTimeDisplay() {
         val position = (playerData.nodesPassed * POSITION_STEP - playerData.nodePosition).toInt()
         val positionString = if (playerData.lapsCompleted < this.raceData.numLaps) {
             Component.literal("${playerData.lapsCompleted + 1u}".padStart(2) + " | " + "${playerData.nodesThisLapPassed}".padEnd(3))
-        } else { 
-            Component.literal("FIN".padEnd(8))
+        } else {
+            Component.literal("FIN".padEnd(6))
                 .withStyle(ChatFormatting.ITALIC)
                 .withStyle(ChatFormatting.GREEN)
         }
@@ -103,4 +103,17 @@ fun ServerLevel.updateTimeDisplay() {
         val numberFormat = FixedFormat(positionString)
         scoreboard.setPlayerScore(SIDEBAR_TIME_ID, player, position, numberFormat)
     }
+}
+
+
+fun ServerLevel.initProgressBarFor(playerId: UUID) {
+    this.levelBossBars.addBossBar(IceboatPlugin.id("lap_progress"), Component.literal("Lap Progress"), playerId)
+    this.levelBossBars.addPlayerTo(playerId, playerId)
+}
+
+// Refresh boss bar which indicates lap progress
+fun ServerLevel.updateProgressBarDisplay(playerId: UUID) {
+    val player = this.server.playerList.getPlayer(playerId) ?: return    
+    val numNodes = this.mapData.getMapData(this.raceData.activeMapKey)?.nodeCount ?: return
+    this.levelBossBars.setBarProgress(playerId, this.playerData.getOrInitPlayerData(player).nodesThisLapPassed.toFloat() / numNodes.toFloat())
 }

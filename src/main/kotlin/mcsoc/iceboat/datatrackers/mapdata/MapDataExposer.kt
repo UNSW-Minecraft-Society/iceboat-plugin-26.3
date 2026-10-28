@@ -99,15 +99,18 @@ data class NodeData(
 data class MapData(
     var firstNodeId: UUID
 ) {
+    var nodeCount = 1u
     val startPositions: MutableCollection<Vec3> = mutableSetOf()
     private val startPositionsList get() = startPositions.toList()
     companion object {
         val CODEC: Codec<MapData> = RecordCodecBuilder.create{it.group(
             UUIDUtil.CODEC.fieldOf("firstNodeId").forGetter(MapData::firstNodeId),
+            UInt.CODEC.fieldOf("nodeCount").forGetter(MapData::nodeCount),
             Vec3.CODEC.listOf().fieldOf("startPositions").forGetter(MapData::startPositionsList)
         ).apply(it, ::MapData)}
     }
-    private constructor(firstNodeId: UUID, startPositions: List<Vec3>) : this(firstNodeId) {
+    private constructor(firstNodeId: UUID, nodeCount: UInt, startPositions: List<Vec3>) : this(firstNodeId) {
+        this.nodeCount = nodeCount
         this.startPositions.addAll(startPositions)
     }
 }
@@ -138,8 +141,13 @@ interface MapDataExposer {
             node = node.next()
         } while (!node.isFirst)
     }
+
+    fun fixMap(id: String) {
+        val mapData = getMapData(id) ?: return
+        mapData.nodeCount = getAllMapNodes(id).size.toUInt()
+    }
     
-    fun getAllMapNodes(id: String): Iterable<Pair<UUID, NodeData>> {
+    fun getAllMapNodes(id: String): Collection<Pair<UUID, NodeData>> {
         val res: MutableCollection<Pair<UUID, NodeData>> = mutableListOf()
         
         var nodeId = getMapData(id)?.firstNodeId ?: return res
@@ -179,6 +187,7 @@ internal interface MapDataHolder : MapDataExposer {
         var node = getFirstMapNodeInternal(id) ?: return insertNodeAfter(id, new)
         while (!node.next().isFirst) node = node.next()
         
+        getMapData(id)?.nodeCount++
         return node.insertNodeAfter(new)
     }
     
@@ -223,7 +232,10 @@ internal interface MapDataHolder : MapDataExposer {
         // insert node as new head
         if (index == null || mapHead == null) {
             val newNodeId = addNode(new, 0u)
-            mapDataMap[mapId]?.let{it.firstNodeId = newNodeId} ?: run { mapDataMap[mapId] = MapData(newNodeId) }
+            mapDataMap[mapId]?.let{
+                it.firstNodeId = newNodeId
+                it.nodeCount++
+            } ?: run { mapDataMap[mapId] = MapData(newNodeId) }
             mapHead?.let{
                 var node = it
                 // seek to end of node chain

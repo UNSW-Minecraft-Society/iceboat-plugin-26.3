@@ -76,7 +76,7 @@ object CommandActions {
         }
         
         source.level.mapData.appendNode(
-            StringArgumentType.getString(ctx, MAP_NAME_ARGUMENT),
+            mapId,
             nodeFromArguments(ctx)
         )
         
@@ -118,6 +118,13 @@ object CommandActions {
         val mapId = StringArgumentType.getString(ctx, MAP_NAME_ARGUMENT)
         ctx.source.level.mapData.getMapData(mapId)?.startPositions?.add(Vec3Argument.getVec3(ctx, VEC3_POSITION_ARGUMENT))
         ctx.source.sendSuccess({Component.literal("Added start position to map '$mapId'.")}, true)
+        return 1
+    }
+    
+    fun fixMap(ctx: CommandContext<CommandSourceStack>): Int {
+        val source = ctx.source
+        val mapId = StringArgumentType.getString(ctx, MAP_NAME_ARGUMENT)
+        source.level.mapData.fixMap(mapId)
         return 1
     }
     

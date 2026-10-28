@@ -3,11 +3,13 @@ package mcsoc.iceboat.datatrackers
 import com.mojang.serialization.Codec
 import com.mojang.serialization.MapCodec
 import com.mojang.serialization.codecs.RecordCodecBuilder
+import mcsoc.iceboat.utils.clientdisplay.ClientBossBarHolder
 import com.mojang.datafixers.util.Pair as CodecPair
-import mcsoc.iceboat.IceboatPlugin
-import mcsoc.iceboat.utils.LevelScoreboardHolder
+import mcsoc.iceboat.utils.clientdisplay.LevelScoreboardExposer
+import mcsoc.iceboat.utils.clientdisplay.LevelScoreboardHolder
 import net.minecraft.network.chat.ComponentSerialization
 import net.minecraft.network.chat.numbers.NumberFormatTypes
+import net.minecraft.server.bossevents.CustomBossEvent
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.scores.Objective
 import net.minecraft.world.scores.PlayerScoreEntry
@@ -66,7 +68,8 @@ private fun Scoreboard.getEntries(): List<CodecPair<Objective.Packed, List<Playe
     return this.objectives.map{CodecPair(it.pack(), this.listPlayerScores(it).toList())}
 }
 
-class LevelScoreTracker private constructor(override val scoreboard: Scoreboard) : LevelTiedData(), LevelScoreboardHolder {
+class LevelScoreTracker private constructor(override val scoreboard: Scoreboard) : LevelTiedData(),
+    LevelScoreboardHolder, ClientBossBarHolder {
     constructor() : this(Scoreboard())
     override fun getType(): LevelDataType<*> = LevelDataType.LevelScores
     companion object {
@@ -76,6 +79,7 @@ class LevelScoreTracker private constructor(override val scoreboard: Scoreboard)
     }
     
     override lateinit var level: ServerLevel
+    override val bossEventMap: MutableMap<UUID, CustomBossEvent> = mutableMapOf()
     override val dirtyObjectives: MutableCollection<String> = mutableSetOf()
     override val dirtyScores: MutableMap<String, MutableCollection<String>> = mutableMapOf()
     
