@@ -260,7 +260,7 @@ fun ServerLevel.startRound(mapId: String): Int {
         
         this.server.playerList.getPlayer(player)?.let{
             it.setGameMode(GameType.SPECTATOR)
-            it.teleportTo(this, startPos.x, startPos.y, startPos.z, emptySet(), firstNodeData.yawToNext, 0F, false)
+            it.teleportTo(this, startPos.x, startPos.y, startPos.z, emptySet(), firstNodeData.yawToNext, 30F, false)
         }
     }
     
