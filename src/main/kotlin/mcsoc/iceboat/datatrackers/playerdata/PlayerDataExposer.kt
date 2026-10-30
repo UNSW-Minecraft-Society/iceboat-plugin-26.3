@@ -36,6 +36,7 @@ class PlayerData(
             Codec.STRING.fieldOf("playerName").forGetter(PlayerData::playerName),
             UUIDUtil.CODEC.optionalFieldOf("currNode").forGetter(PlayerData::currNodeOptional),
             UInt.CODEC.fieldOf("nodesPassed").forGetter(PlayerData::nodesPassed),
+            UInt.CODEC.fieldOf("nodesThisLapPassed").forGetter(PlayerData::nodesThisLapPassed),
             UInt.CODEC.fieldOf("nodePosition").forGetter(PlayerData::nodePosition),
             UInt.CODEC.fieldOf("lapsCompleted").forGetter(PlayerData::lapsCompleted),
             Codec.unboundedMap(
@@ -50,7 +51,8 @@ class PlayerData(
     private constructor(
         playerName: String,
         currNode: Optional<UUID>,
-        nodesPassed: UInt, nodePosition: UInt, lapsCompleted: UInt,
+        nodesPassed: UInt, nodesThisLapPassed: UInt, 
+        nodePosition: UInt, lapsCompleted: UInt,
         bestNodeTimes: Map<UUID, Duration>
     ) : this(playerName) {
         this.currNode = currNode.orElse(null)
