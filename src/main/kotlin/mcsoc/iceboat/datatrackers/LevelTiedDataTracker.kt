@@ -16,7 +16,7 @@ import mcsoc.iceboat.datatrackers.timer.TickExposer
 import mcsoc.iceboat.datatrackers.gameevents.GameEventsExposer
 import mcsoc.iceboat.datatrackers.gameevents.GameEventsTracker
 import mcsoc.iceboat.utils.clientdisplay.ClientBossBarExposer
-import mcsoc.iceboat.utils.clientdisplay.LevelScoreboardExposer
+import mcsoc.iceboat.utils.clientdisplay.PlayerTiedScoreExposer
 import net.minecraft.resources.Identifier
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.util.datafix.DataFixTypes
@@ -105,5 +105,8 @@ val ServerLevel.playerData: PlayerDataExposer get() = this.levelTiedData.getData
 val ServerLevel.gameClock: TickExposer get() = this.levelTiedData.getDataOfType(LevelDataType.GameClock)
 val ServerLevel.raceData: GameDataExposer get() = this.levelTiedData.getDataOfType(LevelDataType.RaceData)
 val ServerLevel.eventsQueue: GameEventsExposer get() = this.levelTiedData.getDataOfType(LevelDataType.EventsQueue).also{it.level = this}
-val ServerLevel.levelScoreboard: LevelScoreboardExposer get() = this.levelTiedData.getDataOfType(LevelDataType.LevelScores).also{it.level = this}
-val ServerLevel.levelBossBars: ClientBossBarExposer get() = this.levelTiedData.getDataOfType(LevelDataType.LevelScores).also{it.level = this}
+val ServerLevel.levelScoreboard: PlayerTiedScoreExposer get() = this.levelTiedData.getDataOfType(LevelDataType.LevelScores).also{it.level = this}
+val ServerLevel.levelBossBars: ClientBossBarExposer get() = this.levelTiedData.getDataOfType(LevelDataType.LevelScores).also{
+    it.level = this
+    it.scoreboard.level = this
+}

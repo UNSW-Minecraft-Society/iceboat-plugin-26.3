@@ -10,7 +10,6 @@ import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents
 fun registerTickEvents() {
     registerGameClockTick()
     registerGameEventsTick()
-    registerLevelScoreboardTick()
     registerPlayerTrackerTick()
 }
 
@@ -20,10 +19,6 @@ fun registerGameClockTick() {
 
 fun registerGameEventsTick() {
     ServerTickEvents.START_LEVEL_TICK.register{ it.eventsQueue.tick() }
-}
-
-fun registerLevelScoreboardTick() {
-    ServerTickEvents.START_LEVEL_TICK.register{ it.levelScoreboard.tick() }
 }
 
 fun registerPlayerTrackerTick() {

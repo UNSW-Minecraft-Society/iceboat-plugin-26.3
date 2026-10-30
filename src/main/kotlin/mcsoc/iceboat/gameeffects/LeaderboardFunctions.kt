@@ -10,7 +10,6 @@ import net.minecraft.ChatFormatting
 import net.minecraft.network.chat.Component
 import net.minecraft.network.chat.numbers.BlankFormat
 import net.minecraft.network.chat.numbers.FixedFormat
-import net.minecraft.network.protocol.game.ClientboundBossEventPacket
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.scores.DisplaySlot
@@ -60,11 +59,6 @@ fun ServerLevel.trackPlayerTimeAtNode(lap: UInt, playerId: UUID, nodeId: UUID, s
 fun ServerPlayer.trackTimeAtNode(lap: UInt, nodeId: UUID, splitTime: Duration) 
     = this.level().trackPlayerTimeAtNode(lap, this.uuid, nodeId, splitTime)
 
-    
-fun ServerLevel.sendScoreboardToPlayer(player: ServerPlayer) {
-    this.levelScoreboard.sendScoreboard(SIDEBAR_TIME_ID, listOf(DisplaySlot.SIDEBAR, DisplaySlot.LIST), player)
-    this.levelScoreboard.sendAllScoreboardValues(SIDEBAR_TIME_ID, player)
-}
 
 // set the LAPS display at the top of the sidebar
 fun ServerLevel.addLapsIndicatorToSidebar() {
@@ -74,7 +68,7 @@ fun ServerLevel.addLapsIndicatorToSidebar() {
     val numberFormat = FixedFormat(Component.literal("${this.raceData.numLaps.toInt()}".padStart(2).padEnd(8))
         .withStyle(ChatFormatting.GRAY))
 
-    scoreboard.setDummyScore(SIDEBAR_TIME_ID, "LAPS:", HIGHEST_SCOREBOARD_VALUE, numberFormat)
+    scoreboard.setScore(SIDEBAR_TIME_ID, "LAPS:", HIGHEST_SCOREBOARD_VALUE, numberFormat)
 }
 
 // Refresh all player position indicators on sidebar based on player's position
@@ -83,7 +77,7 @@ fun ServerLevel.updateTimeDisplay() {
     scoreboard.tryAddObjective(SIDEBAR_TIME_ID, SIDEBAR_POSITIONS_DISPLAY, BlankFormat.INSTANCE)
     
     if (this.raceData.activeMapKey.isEmpty()) {
-        scoreboard.clearScores(SIDEBAR_TIME_ID)
+        scoreboard.removeObjective(SIDEBAR_TIME_ID)
         return
     }
     
@@ -101,7 +95,7 @@ fun ServerLevel.updateTimeDisplay() {
         }
         
         val numberFormat = FixedFormat(positionString)
-        scoreboard.setPlayerScore(SIDEBAR_TIME_ID, player, position, numberFormat)
+        scoreboard.setScore(SIDEBAR_TIME_ID, player, position, numberFormat)
     }
 }
 
@@ -109,6 +103,10 @@ fun ServerLevel.updateTimeDisplay() {
 fun ServerLevel.initProgressBarFor(playerId: UUID) {
     this.levelBossBars.addBossBar(IceboatPlugin.id("lap_progress"), Component.literal("Lap Progress"), playerId)
     this.levelBossBars.addPlayerTo(playerId, playerId)
+}
+
+fun ServerLevel.initScoreboardFor(playerId: UUID) {
+    this.levelScoreboard.addPlayerToTracking(playerId, SIDEBAR_TIME_ID, listOf(DisplaySlot.LIST, DisplaySlot.SIDEBAR))
 }
 
 // Refresh boss bar which indicates lap progress

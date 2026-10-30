@@ -2,6 +2,7 @@ package mcsoc.iceboat.gameeffects
 
 import mcsoc.iceboat.datatrackers.eventsQueue
 import mcsoc.iceboat.datatrackers.levelBossBars
+import mcsoc.iceboat.datatrackers.levelScoreboard
 import mcsoc.iceboat.datatrackers.mapData
 import mcsoc.iceboat.datatrackers.mapdata.NodeData
 import mcsoc.iceboat.datatrackers.playerData
@@ -28,6 +29,7 @@ import net.minecraft.world.item.Items
 import net.minecraft.world.level.GameType
 import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.phys.Vec3
+import net.minecraft.world.scores.DisplaySlot
 import java.math.RoundingMode
 import java.util.UUID
 import kotlin.time.Duration
@@ -70,7 +72,6 @@ private fun ServerPlayer.onRaceFinished() {
     this.controlledVehicle?.kill(level)
     // "kill" any leftover indicators
     level.broadcastPositionVisually(this.uuid)
-    
     level.levelBossBars.removePlayerFrom(this.uuid, this)
     
     this.setGameMode(GameType.SPECTATOR)
@@ -327,6 +328,8 @@ fun ServerLevel.beginRace() {
             it.resetData()
             it.currNode = mapData.firstNodeId
         }
+        
+        this.initScoreboardFor(playerId)
         this.initProgressBarFor(playerId)
         
         val vehicle = this.getEntity(this.raceData.playerToBoatMap[playerId]!!)!!
@@ -334,7 +337,6 @@ fun ServerLevel.beginRace() {
         this.setChunkForced(chunkPos.x, chunkPos.z, false)
         
         val player = this.server.playerList.getPlayer(playerId) ?: continue
-        this.sendScoreboardToPlayer(player)
         player.setGameMode(GameType.ADVENTURE)
         player.startRiding(vehicle, true, true)
     }
