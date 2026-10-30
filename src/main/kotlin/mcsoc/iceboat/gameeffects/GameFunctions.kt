@@ -1,6 +1,8 @@
 package mcsoc.iceboat.gameeffects
 
 import mcsoc.iceboat.datatrackers.eventsQueue
+import mcsoc.iceboat.datatrackers.levelBossBars
+import mcsoc.iceboat.datatrackers.levelScoreboard
 import mcsoc.iceboat.datatrackers.mapData
 import mcsoc.iceboat.datatrackers.mapdata.NodeData
 import mcsoc.iceboat.datatrackers.playerData
@@ -12,7 +14,9 @@ import net.minecraft.network.chat.Style
 import net.minecraft.network.chat.TextColor
 import net.minecraft.network.protocol.game.ClientboundAddEntityPacket
 import net.minecraft.network.protocol.game.ClientboundLevelParticlesPacket
+import net.minecraft.network.protocol.game.ClientboundRemoveEntitiesPacket
 import net.minecraft.network.protocol.game.ClientboundSetActionBarTextPacket
+import net.minecraft.network.protocol.game.ClientboundSetEntityDataPacket
 import net.minecraft.resources.Identifier
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
@@ -25,11 +29,18 @@ import net.minecraft.world.item.Items
 import net.minecraft.world.level.GameType
 import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.phys.Vec3
+import net.minecraft.world.scores.DisplaySlot
 import java.math.RoundingMode
 import java.util.UUID
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
+
+// The finish position assigned to players who didn't finish on game end
+private const val DNF_POSITION = 999u
+
+// Number of ticks to average player velocities over. Higher => smoother, but also less responsive
+private const val VELOCITY_AVERAGE_TICKS = 5
 
 // This isn't level-tied, but I don't forsee any actual problems.
 private val oldPosMap: MutableMap<UUID, ArrayDeque<Vec3>> = mutableMapOf()
@@ -51,19 +62,18 @@ private fun spawnRandomChestBoat(level: ServerLevel, prespawn: (ChestBoat) -> Un
     return ChestBoat(chestBoatTypes.random(), level){Items.AIR}.also(prespawn)
         .also(level::addFreshEntityWithPassengers)
         .also {
-            val display = Display.BlockDisplay(EntityTypes.BLOCK_DISPLAY, level)
-            display.blockState = Blocks.LIGHTNING_ROD.waxed.unaffected.defaultBlockState()
-            level.addFreshEntity(display)
-            level.raceData.boatToDisplayMap[it.uuid] = display.uuid
+            level.raceData.boatToDisplayMap[it.uuid] = Pair(it.id + 1000, UUID.randomUUID())
         }
 }
 
 private fun ServerPlayer.onRaceFinished() {
     val level = this.level()
-    level.raceData.boatToDisplayMap[this.controlledVehicle?.uuid]?.let{
-        level.getEntity(it)?.kill(level)
-    }
+    
     this.controlledVehicle?.kill(level)
+    // "kill" any leftover indicators
+    level.broadcastPositionVisually(this.uuid)
+    level.levelBossBars.removePlayerFrom(this.uuid, this)
+    
     this.setGameMode(GameType.SPECTATOR)
 }
 
@@ -120,14 +130,41 @@ fun ServerPlayer.sendActionbarHUD(velocity: Double, time: Duration) {
 }
 
 
+// Broadcast "true" boat position via copper rod block display
 fun ServerLevel.broadcastPositionVisually(playerId: UUID) {
-    val vehicleId = level.raceData.playerToBoatMap[playerId] ?: return
-    val display = this.getEntity(level.raceData.boatToDisplayMap[vehicleId] ?: return) ?: return
+    val vehicleId = this.raceData.playerToBoatMap[playerId] ?: return
+    
+    val displayIds = this.raceData.boatToDisplayMap[vehicleId] ?: return
+    val display = Display.BlockDisplay(EntityTypes.BLOCK_DISPLAY, this).also{
+        it.blockState = Blocks.LIGHTNING_ROD.waxed.unaffected.defaultBlockState()
+    }
+    
     this.getEntity(vehicleId)?.let{
-        // if (display.vehicle == null) display.startRiding(it, true, true)
-        display.teleportTo(it.x, it.y, it.z)
+        for (player in this.server.playerList.players) {
+            // if (player.uuid == playerId) continue
+            player.connection.send(
+                ClientboundAddEntityPacket(
+                    displayIds.first, displayIds.second, 
+                    it.x, it.y, it.z, 0F, 0F,
+                    EntityTypes.BLOCK_DISPLAY, 0,
+                    it.knownMovement, 0.0
+                )
+            )
+            player.connection.send(
+                ClientboundSetEntityDataPacket(
+                    displayIds.first,
+                    display.entityData.nonDefaultValues!!
+                )
+            )
+        }
     } ?: run {
-        display.kill(this)
+        for (player in this.server.playerList.players) {
+            player.connection.send(
+                ClientboundRemoveEntitiesPacket(
+                    displayIds.first
+                )
+            )
+        }
     }
 }
 
@@ -148,6 +185,7 @@ fun ServerLevel.tickActivePlayers() {
             ensureBoatRiding(playerId)
             broadcastPositionVisually(playerId)
             tickPlayerNodeTracking(playerId, finishedPlayers)
+            updateProgressBarDisplay(playerId)
         }
     }
     broadcastFinishedPlayers(finishedPlayers)
@@ -190,19 +228,27 @@ fun ServerLevel.tickPlayerNodeTracking(playerId: UUID, finishedPlayers: MutableC
             player.displayNextCheckpoint(nextNode)
         }
         
-        // TODO sum last 3 deltas instead of just last
+        // find average velocity over last N ticks
+        val iter = it.iterator()
+        var curr: Vec3 = iter.next()
+        val diffs: MutableCollection<Vec3> = mutableListOf()
+        while (iter.hasNext()) {
+            curr = iter.next().also{
+                diffs.add(it.subtract(curr))
+            }
+        }
         //  *72 to convert from m/t to km/h
-        val velocity = it.last().subtract(player.position()).length() * 72.0          
+        val velocity: Double = diffs.sumOf(Vec3::length) * 72.0 / it.size  
         val time = playerData.timer.time
         player.sendActionbarHUD(velocity, time)
         
-        
-    } ?: run { oldPosMap[playerId] = ArrayDeque(3) }
+    } ?: run { oldPosMap[playerId] = ArrayDeque(VELOCITY_AVERAGE_TICKS) }
+    
     oldPosMap[playerId]?.let{
+        if (it.size > VELOCITY_AVERAGE_TICKS) it.removeFirstOrNull()
+        else if (it.isEmpty()) it.add(player.position())
+        
         it.add(player.position())
-        if (it.size > 3)  {
-            it.removeFirstOrNull()
-        }
     }        
 }
 
@@ -231,15 +277,13 @@ fun ServerLevel.broadcastFinishedPlayers(finishedPlayers: MutableCollection<UUID
  *  2 - First map node does not exist
  *  3 - Not enough start positions
  */
-fun ServerLevel.startRound(mapId: String): Int {
+fun ServerLevel.startRound(mapId: String, numLaps: UInt = 3u): Int {
     val mapData = this.mapData.getMapData(mapId) ?: return 1
     val firstNodeData = level.mapData.getNode(mapData.firstNodeId) ?: return 2
         
     if (this.raceData.phase.isRunning) {
-        this.endRound()
+        this.endRound(true)
     }
-    
-    updateTimeDisplay(this)
     
     val playerData = this.playerData
 
@@ -247,7 +291,8 @@ fun ServerLevel.startRound(mapId: String): Int {
     if (playerData.activePlayers.size > mapData.startPositions.size) return 3
     this.raceData.setActiveMap(mapId)
     
-
+    this.raceData.numLaps = numLaps
+    
     val startPositions = mapData.startPositions.iterator()
     for (player in playerData.activePlayers.shuffled()) {
         val startPos = startPositions.next()
@@ -275,31 +320,36 @@ fun ServerLevel.startRound(mapId: String): Int {
 fun ServerLevel.beginRace() {
     val mapData = this.mapData.getMapData(this.raceData.activeMapKey) ?: return
     val firstNodeData = level.mapData.getNode(mapData.firstNodeId) ?: return
-
-    for (player in playerData.activePlayers.shuffled()) {
-        val playerData = playerData.getOrInitPlayerData(player).also {
+    this.updateTimeDisplay()
+    this.addLapsIndicatorToSidebar()
+    
+    for (playerId in playerData.activePlayers) {
+        val playerData = playerData.getOrInitPlayerData(playerId).also {
             it.resetData()
             it.currNode = mapData.firstNodeId
         }
         
-        val vehicle = this.getEntity(this.raceData.playerToBoatMap[player]!!)!!
+        this.initScoreboardFor(playerId)
+        this.initProgressBarFor(playerId)
+        
+        val vehicle = this.getEntity(this.raceData.playerToBoatMap[playerId]!!)!!
         val chunkPos = vehicle.chunkPosition()
         this.setChunkForced(chunkPos.x, chunkPos.z, false)
         
-        val player = this.server.playerList.getPlayer(player) ?: continue
+        val player = this.server.playerList.getPlayer(playerId) ?: continue
         player.setGameMode(GameType.ADVENTURE)
         player.startRiding(vehicle, true, true)
     }
     this.raceData.startRace()
 }
 
-fun ServerLevel.endRound() {
+fun ServerLevel.endRound(keepPlayers: Boolean = false) {
     val finalPositions: MutableList<Pair<UInt, String>> = mutableListOf()
     for (playerData in this.playerData.activePlayerData) {
         if (playerData.lapsCompleted >= this.raceData.numLaps) {
             finalPositions.add(Pair(playerData.nodePosition + 1u, playerData.playerName))
         } else {
-            finalPositions.add(Pair(999u, playerData.playerName))
+            finalPositions.add(Pair(DNF_POSITION, playerData.playerName))
         }
         
         // clear player data
@@ -310,13 +360,12 @@ fun ServerLevel.endRound() {
     for (player in this.playerData.activePlayers.mapNotNull(this.server.playerList::getPlayer)) {
         player.onRaceFinished()
         for (position in finalPositions) {
-            val posString = if (position.first != 999u) "${position.first}".padStart(3) else "DNF"
+            val posString = if (position.first != DNF_POSITION) "${position.first}".padStart(3) else "DNF"
             player.sendSystemMessage(Component.literal("$posString: ${position.second}"))
         }
     }
 
-    this.playerData.activePlayers.clear()
-    
     this.raceData.setInactive()
-    updateTimeDisplay(this)
+    this.updateTimeDisplay()
+    if (!keepPlayers) this.playerData.activePlayers.clear()
 }

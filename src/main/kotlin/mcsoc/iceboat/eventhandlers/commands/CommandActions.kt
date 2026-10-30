@@ -76,7 +76,7 @@ object CommandActions {
         }
         
         source.level.mapData.appendNode(
-            StringArgumentType.getString(ctx, MAP_NAME_ARGUMENT),
+            mapId,
             nodeFromArguments(ctx)
         )
         
@@ -121,6 +121,13 @@ object CommandActions {
         return 1
     }
     
+    fun fixMap(ctx: CommandContext<CommandSourceStack>): Int {
+        val source = ctx.source
+        val mapId = StringArgumentType.getString(ctx, MAP_NAME_ARGUMENT)
+        source.level.mapData.fixMap(mapId)
+        return 1
+    }
+    
     fun clearMap(ctx: CommandContext<CommandSourceStack>): Int {
         val source = ctx.source
         val mapId = StringArgumentType.getString(ctx, MAP_NAME_ARGUMENT)
@@ -137,7 +144,8 @@ object CommandActions {
     fun startGame(ctx: CommandContext<CommandSourceStack>): Int {
         val source = ctx.source
         val mapId = StringArgumentType.getString(ctx, MAP_NAME_ARGUMENT)
-        return when (source.level.startRound(mapId)) {
+        val numLaps = IntegerArgumentType.getInteger(ctx, INT_COUNT_ARGUMENT).toUInt()
+        return when (source.level.startRound(mapId, numLaps)) {
             0 -> {
                 source.sendSuccess({Component.literal("Started a new round on map '$mapId.'")}, true)
                 1

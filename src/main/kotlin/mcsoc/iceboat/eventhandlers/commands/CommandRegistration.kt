@@ -9,7 +9,6 @@ import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback
 import net.minecraft.commands.Commands
 import net.minecraft.commands.arguments.EntityArgument
 import net.minecraft.commands.arguments.UuidArgument
-import net.minecraft.commands.arguments.coordinates.RotationArgument
 import net.minecraft.commands.arguments.coordinates.Vec3Argument
 
 
@@ -24,6 +23,9 @@ private val NODE_ARGUMENT_NODE get() = Commands.argument(NODE_ARGUMENT, UuidArgu
 
 internal const val INDEX_ARGUMENT = "index"
 private val INDEX_ARGUMENT_NODE get() = Commands.argument(INDEX_ARGUMENT, IntegerArgumentType.integer(0))
+
+internal const val INT_COUNT_ARGUMENT = "number"
+private val INT_ARGUMENT_NODE get() = Commands.argument(INT_COUNT_ARGUMENT, IntegerArgumentType.integer(1))
 
 internal const val VEC3_POSITION_ARGUMENT = "pos1"
 private val VEC3_POSITION_ARGUMENT_NODE get() = Commands.argument(VEC3_POSITION_ARGUMENT, Vec3Argument.vec3())
@@ -94,6 +96,11 @@ fun registerCommands() {
                     )
                 )
             )
+            .then(Commands.literal("fix")
+                .then(MAP_NAME_ARGUMENT_NODE
+                    .executes(CommandActions::fixMap)
+                )
+            )
             .then(Commands.literal("clear")
                 .then(MAP_NAME_ARGUMENT_NODE
                     .executes(CommandActions::clearMap)
@@ -118,7 +125,9 @@ fun registerCommands() {
         .then(Commands.literal("game")
             .then(Commands.literal("start")
                 .then(MAP_NAME_ARGUMENT_NODE
-                    .executes(CommandActions::startGame)
+                    .then(INT_ARGUMENT_NODE
+                        .executes(CommandActions::startGame)
+                    )
                 )
             )
             .then(Commands.literal("end")

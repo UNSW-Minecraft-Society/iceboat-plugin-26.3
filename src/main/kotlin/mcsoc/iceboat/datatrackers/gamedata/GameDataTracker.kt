@@ -5,6 +5,7 @@ import com.mojang.serialization.MapCodec
 import com.mojang.serialization.codecs.RecordCodecBuilder
 import mcsoc.iceboat.datatrackers.LevelDataType
 import mcsoc.iceboat.datatrackers.LevelTiedData
+import mcsoc.iceboat.utils.CODEC
 import net.minecraft.core.UUIDUtil
 import java.util.UUID
 
@@ -14,12 +15,14 @@ class GameDataTracker() : LevelTiedData(), GameDataHolder {
     companion object {
         val CODEC: MapCodec<GameDataTracker> = RecordCodecBuilder.mapCodec{it.group(
             Codec.STRING.fieldOf("activeMapKey").forGetter(GameDataTracker::activeMapKey),
+            UInt.CODEC.fieldOf("numLaps").forGetter(GameDataTracker::numLaps),
             Codec.unboundedMap(UUIDUtil.STRING_CODEC, LapProgress.CODEC).listOf().fieldOf("nodeProgress").forGetter(GameDataTracker::nodeProgress),
             GamePhase.CODEC.fieldOf("gamePhase").forGetter(GameDataTracker::phase)
         ).apply(it, ::GameDataTracker)}
     }
-    private constructor(activeMapKey: String, nodeProgress: MutableList<MutableMap<UUID, LapProgress>>, phase: GamePhase) : this() {
+    private constructor(activeMapKey: String, numlaps: UInt, nodeProgress: MutableList<MutableMap<UUID, LapProgress>>, phase: GamePhase) : this() {
         this.activeMapKey = activeMapKey
+        this.numLaps = numlaps
         nodeProgress.map{it.toMutableMap()}.forEach(this.nodeProgress::add)
         this.phase = phase
     }
@@ -27,7 +30,8 @@ class GameDataTracker() : LevelTiedData(), GameDataHolder {
     override var activeMapKey: String = ""
         get() = if (phase.isRunning) field else "" 
     override var phase: GamePhase = GamePhase.Inactive
+    override var numLaps: UInt = 3u
     override val nodeProgress: MutableList<MutableMap<UUID, LapProgress>> = mutableListOf()
     override val playerToBoatMap: MutableMap<UUID, UUID> = mutableMapOf()
-    override val boatToDisplayMap: MutableMap<UUID, UUID> = mutableMapOf()
+    override val boatToDisplayMap: MutableMap<UUID, Pair<Int, UUID>> = mutableMapOf()
 }
