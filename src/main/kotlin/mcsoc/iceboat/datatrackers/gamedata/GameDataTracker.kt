@@ -33,5 +33,6 @@ class GameDataTracker() : LevelTiedData(), GameDataHolder {
     override var numLaps: UInt = 3u
     override val nodeProgress: MutableList<MutableMap<UUID, LapProgress>> = mutableListOf()
     override val playerToBoatMap: MutableMap<UUID, UUID> = mutableMapOf()
-    override val boatToDisplayMap: MutableMap<UUID, Pair<Int, UUID>> = mutableMapOf()
+    override val vehicleToDisplayMap: MutableMap<UUID, Pair<Int, UUID>> = mutableMapOf()
+    override var isSillyMode: Boolean = false
 }

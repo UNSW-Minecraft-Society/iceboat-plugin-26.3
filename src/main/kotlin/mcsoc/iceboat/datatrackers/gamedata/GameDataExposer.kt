@@ -69,7 +69,8 @@ interface GameDataExposer {
     fun trackPlayerPassed(node: UUID, lap: UInt, player: UUID, playerTime: Duration): Boolean
     
     val playerToBoatMap: MutableMap<UUID, UUID>
-    val boatToDisplayMap: MutableMap<UUID, Pair<Int, UUID>>
+    val vehicleToDisplayMap: MutableMap<UUID, Pair<Int, UUID>>
+    var isSillyMode: Boolean
 }
 
 internal interface GameDataHolder : GameDataExposer {
