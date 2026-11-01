@@ -171,7 +171,12 @@ object CommandActions {
     
     fun endGame(ctx: CommandContext<CommandSourceStack>): Int {
         val source = ctx.source
-        source.level.endRound()
+        try {
+            source.level.endRound()
+        } catch (e: Exception) {
+            IceboatPlugin.LOGGER.error("endGame: ", e)
+        }
+        
         source.sendSuccess({Component.literal("Ended the current round.")}, true)
         return 1
     }
