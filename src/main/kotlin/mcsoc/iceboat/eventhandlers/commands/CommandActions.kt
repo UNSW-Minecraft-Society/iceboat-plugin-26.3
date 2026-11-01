@@ -176,6 +176,18 @@ object CommandActions {
         return 1
     }
     
+    fun setSillyMode(ctx: CommandContext<CommandSourceStack>): Int {
+        val source = ctx.source
+        if (BoolArgumentType.getBool(ctx, STATE_ARGUMENT)) {
+            source.level.raceData.isSillyMode = true
+            source.sendSuccess({Component.literal("Enabled Silly mode!")}, true)
+        } else {
+            source.level.raceData.isSillyMode = false
+            source.sendSuccess({Component.literal("Disabled Silly mode.")}, true)
+        }
+        return 1
+    }
+    
     fun debugPlayer(ctx: CommandContext<CommandSourceStack>): Int {
         val source = ctx.source
         val playerData = source.level.playerData.player_data[EntityArgument.getPlayer(ctx, PLAYER_ARGUMENT).uuid]

@@ -70,12 +70,14 @@ interface GameDataExposer {
     fun trackPlayerPassed(node: UUID, lap: UInt, player: UUID, playerTime: Duration): Boolean
     
     val playerToBoatMap: MutableMap<UUID, UUID>
-    val boatToDisplayMap: MutableMap<UUID, Pair<Int, UUID>>
+    val vehicleToDisplayMap: MutableMap<UUID, Pair<Int, UUID>>
     
     val playerPositions: MutableList<UUID>
     fun sortPositions(level: ServerLevel, sortBy: ((ServerLevel) -> ((UUID, UUID) -> Int))) {
         playerPositions.sortWith(sortBy(level))
     }
+    
+    var isSillyMode: Boolean
 }
 
 internal interface GameDataHolder : GameDataExposer {

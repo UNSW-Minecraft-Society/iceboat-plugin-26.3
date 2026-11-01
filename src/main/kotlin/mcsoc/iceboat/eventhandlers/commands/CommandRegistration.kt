@@ -45,6 +45,9 @@ private val PLAYERS_ARGUMENT_NODE get() = Commands.argument(PLAYERS_ARGUMENT, En
 internal const val SPLIT_ARGUMENT = "endsSplit"
 private val SPLIT_ARGUMENT_NODE get() = Commands.argument(SPLIT_ARGUMENT, BoolArgumentType.bool())
 
+internal const val STATE_ARGUMENT = "state"
+private val STATE_ARGUMENT_NODE get() = Commands.argument(STATE_ARGUMENT, BoolArgumentType.bool())
+
 
 fun registerCommands() {
     CommandRegistrationCallback.EVENT.register{dispatcher, buildContext, selection -> dispatcher.register(
@@ -132,6 +135,11 @@ fun registerCommands() {
             )
             .then(Commands.literal("end")
                 .executes(CommandActions::endGame)
+            )
+            .then(Commands.literal("sillymode")
+                .then(STATE_ARGUMENT_NODE
+                    .executes(CommandActions::setSillyMode)
+                )
             )
         )
         .then(Commands.literal("players")

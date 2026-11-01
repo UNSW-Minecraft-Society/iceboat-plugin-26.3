@@ -2,7 +2,6 @@ package mcsoc.iceboat.gameeffects
 
 import mcsoc.iceboat.datatrackers.eventsQueue
 import mcsoc.iceboat.datatrackers.levelBossBars
-import mcsoc.iceboat.datatrackers.levelScoreboard
 import mcsoc.iceboat.datatrackers.mapData
 import mcsoc.iceboat.datatrackers.mapdata.NodeData
 import mcsoc.iceboat.datatrackers.playerData
@@ -24,12 +23,13 @@ import net.minecraft.util.Mth
 import net.minecraft.world.entity.Display
 import net.minecraft.world.entity.EntityType
 import net.minecraft.world.entity.EntityTypes
+import net.minecraft.world.entity.ai.attributes.Attributes
+import net.minecraft.world.entity.animal.equine.Horse
 import net.minecraft.world.entity.vehicle.boat.ChestBoat
 import net.minecraft.world.item.Items
 import net.minecraft.world.level.GameType
 import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.phys.Vec3
-import net.minecraft.world.scores.DisplaySlot
 import java.math.RoundingMode
 import java.util.UUID
 import kotlin.time.Duration
@@ -62,14 +62,28 @@ private fun spawnRandomChestBoat(level: ServerLevel, prespawn: (ChestBoat) -> Un
     return ChestBoat(chestBoatTypes.random(), level){Items.AIR}.also(prespawn)
         .also(level::addFreshEntityWithPassengers)
         .also {
-            level.raceData.boatToDisplayMap[it.uuid] = Pair(it.id + 1000, UUID.randomUUID())
+            level.raceData.vehicleToDisplayMap[it.uuid] = Pair(it.id + 1000, UUID.randomUUID())
+        }
+}
+
+
+private fun spawnRandomTamedHorse(level: ServerLevel, prespawn: (Horse) -> Unit = {}): Horse {
+    return Horse(EntityTypes.HORSE, level).also(prespawn)
+        .also(level::addFreshEntityWithPassengers)
+        .also {
+            level.raceData.vehicleToDisplayMap[it.uuid] = Pair(it.id + 1000, UUID.randomUUID())
+            it.isTamed = true
+            it.equipItemIfPossible(level, Items.SADDLE.defaultInstance)
+            it.getAttribute(Attributes.MOVEMENT_SPEED)?.baseValue = 0.35
+            it.getAttribute(Attributes.JUMP_STRENGTH)?.baseValue = 0.1
+            it.getAttribute(Attributes.MAX_HEALTH)?.baseValue = 10.0
         }
 }
 
 private fun ServerPlayer.onRaceFinished() {
     val level = this.level()
     
-    this.controlledVehicle?.kill(level)
+    this.controlledVehicle?.discard()
     // "kill" any leftover indicators
     level.broadcastPositionVisually(this.uuid)
     level.levelBossBars.removePlayerFrom(this.uuid, this)
@@ -140,7 +154,7 @@ fun ServerPlayer.sendActionbarHUD(velocity: Double, position: Int, time: Duratio
 fun ServerLevel.broadcastPositionVisually(playerId: UUID) {
     val vehicleId = this.raceData.playerToBoatMap[playerId] ?: return
     
-    val displayIds = this.raceData.boatToDisplayMap[vehicleId] ?: return
+    val displayIds = this.raceData.vehicleToDisplayMap[vehicleId] ?: return
     val display = Display.BlockDisplay(EntityTypes.BLOCK_DISPLAY, this).also{
         it.blockState = Blocks.LIGHTNING_ROD.waxed.unaffected.defaultBlockState()
     }
@@ -301,18 +315,19 @@ fun ServerLevel.startRound(mapId: String, numLaps: UInt = 3u): Int {
     this.raceData.numLaps = numLaps
     
     val startPositions = mapData.startPositions.iterator()
-    for (player in playerData.activePlayers.shuffled()) {
+    for (playerId in playerData.activePlayers.shuffled()) {
         val startPos = startPositions.next()
         
-        spawnRandomChestBoat(this).also{
-            it.teleportTo(this, startPos.x, startPos.y, startPos.z, emptySet(), firstNodeData.yawToNext, 0F, false)
+        val isSillyMode = this.raceData.isSillyMode
+        (if (isSillyMode) spawnRandomTamedHorse(this) else spawnRandomChestBoat(this)).also{
+            it.teleportTo(this, startPos.x, startPos.y, startPos.z, emptySet(), firstNodeData.yawToNext, 30F, true)
             this.setChunkForced(startPos.x.toInt() shr 4, startPos.z.toInt() shr 4, true)
-            this.raceData.playerToBoatMap[player] = it.uuid
+            this.raceData.playerToBoatMap[playerId] = it.uuid
         }
         
-        this.server.playerList.getPlayer(player)?.let{
+        this.server.playerList.getPlayer(playerId)?.let{
             it.setGameMode(GameType.SPECTATOR)
-            it.teleportTo(this, startPos.x, startPos.y, startPos.z, emptySet(), firstNodeData.yawToNext, 30F, false)
+            it.teleportTo(this, startPos.x, startPos.y, startPos.z, emptySet(), firstNodeData.yawToNext, 30F, true)
         }
     }
     
@@ -353,6 +368,7 @@ fun ServerLevel.beginRace() {
 }
 
 fun ServerLevel.endRound(keepPlayers: Boolean = false) {
+    oldPosMap.clear()
     val finalPositions: MutableList<Pair<UInt, String>> = mutableListOf()
     for (playerData in this.playerData.activePlayerData) {
         if (playerData.lapsCompleted >= this.raceData.numLaps) {
