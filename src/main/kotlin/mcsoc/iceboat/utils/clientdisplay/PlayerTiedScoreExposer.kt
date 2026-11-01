@@ -172,7 +172,7 @@ open class PlayerTiedScoreboard() : Scoreboard() {
 
     override fun onObjectiveRemoved(objective: Objective) {
         trackingPlayersMap[objective]?.let{
-            for (playerId in it) {
+            for (playerId in it.toList()) {
                 removeTrackedPlayer(playerId, objective)
             }
         }
