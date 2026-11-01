@@ -98,8 +98,9 @@ fun ServerPlayer.displayNextCheckpoint(nextNode: NodeData) {
     }
 }
 
-fun ServerPlayer.sendActionbarHUD(velocity: Double, time: Duration) {
+fun ServerPlayer.sendActionbarHUD(velocity: Double, position: Int, time: Duration) {
     val velocityString = velocity.toBigDecimal().setScale(3, RoundingMode.FLOOR).toString().substring(0 until 5)
+    val posString = position.toString()
     val timeString = time.toComponents{ minutes, seconds, nanos -> 
         "$minutes".padStart(2, '0') + ":" + "$seconds".padStart(2, '0') + ":" + "$nanos".padStart(2, '0').substring(0 until 2)
     }
@@ -108,22 +109,27 @@ fun ServerPlayer.sendActionbarHUD(velocity: Double, time: Duration) {
         Component.empty()
             .append(Component.literal("Speed: ").append(
                 Component.literal(velocityString.padEnd(5)).withStyle(Style.EMPTY
-                // monospaced font
-                .withFont(FontDescription.Resource(Identifier.withDefaultNamespace("uniform")))
-                .withColor(TextColor.AQUA)
-                .withBold(true)
-                .withUnderlined(true)
+                    // monospaced font
+                    .withFont(FontDescription.Resource(Identifier.withDefaultNamespace("uniform")))
+                    .withColor(TextColor.AQUA)
+                    .withBold(true)
                 )
-            ).append(" km/h")
-            )
+            ).append(" km/h"))
+            .append(Component.literal(" | "))
+            .append(Component.literal("#").append(
+                Component.literal(posString.padEnd(2)).withStyle(Style.EMPTY
+                    // monospaced font
+                    .withFont(FontDescription.Resource(Identifier.withDefaultNamespace("uniform")))
+                    .withBold(true)
+                )
+            ))
             .append(Component.literal(" | "))
             .append(Component.literal("Time: ").append(
                 Component.literal(timeString).withStyle(Style.EMPTY
-                // monospaced font
-                .withFont(FontDescription.Resource(Identifier.withDefaultNamespace("uniform")))
-                .withColor(TextColor.GREEN)
-                .withBold(true)
-                .withUnderlined(true)
+                    // monospaced font
+                    .withFont(FontDescription.Resource(Identifier.withDefaultNamespace("uniform")))
+                    .withColor(TextColor.GREEN)
+                    .withBold(true)
                 )
             ))
     ))
@@ -238,9 +244,10 @@ fun ServerLevel.tickPlayerNodeTracking(playerId: UUID, finishedPlayers: MutableC
             }
         }
         //  *72 to convert from m/t to km/h
-        val velocity: Double = diffs.sumOf(Vec3::length) * 72.0 / it.size  
+        val velocity: Double = diffs.sumOf(Vec3::length) * 72.0 / it.size
+        val position: Int = this.raceData.playerPositions.indexOf(playerId) + 1
         val time = playerData.timer.time
-        player.sendActionbarHUD(velocity, time)
+        player.sendActionbarHUD(velocity, position, time)
         
     } ?: run { oldPosMap[playerId] = ArrayDeque(VELOCITY_AVERAGE_TICKS) }
     
@@ -339,6 +346,8 @@ fun ServerLevel.beginRace() {
         val player = this.server.playerList.getPlayer(playerId) ?: continue
         player.setGameMode(GameType.ADVENTURE)
         player.startRiding(vehicle, true, true)
+        
+        this.raceData.playerPositions.addFirst(playerId)
     }
     this.raceData.startRace()
 }
@@ -366,6 +375,7 @@ fun ServerLevel.endRound(keepPlayers: Boolean = false) {
     }
 
     this.raceData.setInactive()
+    this.raceData.playerPositions.clear()
     this.updateTimeDisplay()
     if (!keepPlayers) this.playerData.activePlayers.clear()
 }

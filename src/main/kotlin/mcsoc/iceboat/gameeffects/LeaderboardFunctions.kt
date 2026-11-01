@@ -29,6 +29,17 @@ private val SIDEBAR_POSITIONS_DISPLAY = Component.literal("Positions")
 // An arbitrary highest scoreboard value (so it shows at top). No regular score should exceed this value!
 private const val HIGHEST_SCOREBOARD_VALUE = 99999
 
+
+private val playerPositionsSort: (ServerLevel) -> ((UUID, UUID) -> Int) = {
+    val playersData = it.playerData
+    
+    {p1, p2 ->
+        val nodesCompare = playersData.getOrInitPlayerData(p2).nodesPassed.compareTo(playersData.getOrInitPlayerData(p1).nodesPassed)
+        if (nodesCompare != 0) nodesCompare
+        else playersData.getOrInitPlayerData(p1).nodePosition.compareTo(playersData.getOrInitPlayerData(p2).nodePosition)
+    }
+}
+
 /* Handle updating player score and sending feedback when they go over a race node
  * Arguments
  *  level - The world (REVOLVING)
@@ -54,6 +65,7 @@ fun ServerLevel.trackPlayerTimeAtNode(lap: UInt, playerId: UUID, nodeId: UUID, s
         this.playerData.trackPlayerPassingNode(playerId, nodeId)
     }
     
+    this.raceData.sortPositions(this, playerPositionsSort)
     this.updateTimeDisplay()
 }
 fun ServerPlayer.trackTimeAtNode(lap: UInt, nodeId: UUID, splitTime: Duration) 

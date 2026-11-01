@@ -4,6 +4,7 @@ import com.mojang.serialization.Codec
 import com.mojang.serialization.codecs.RecordCodecBuilder
 import mcsoc.iceboat.utils.CODEC
 import net.minecraft.core.UUIDUtil
+import net.minecraft.server.level.ServerLevel
 import net.minecraft.util.StringRepresentable
 import java.util.UUID
 import kotlin.time.Duration
@@ -70,6 +71,11 @@ interface GameDataExposer {
     
     val playerToBoatMap: MutableMap<UUID, UUID>
     val boatToDisplayMap: MutableMap<UUID, Pair<Int, UUID>>
+    
+    val playerPositions: MutableList<UUID>
+    fun sortPositions(level: ServerLevel, sortBy: ((ServerLevel) -> ((UUID, UUID) -> Int))) {
+        playerPositions.sortWith(sortBy(level))
+    }
 }
 
 internal interface GameDataHolder : GameDataExposer {
