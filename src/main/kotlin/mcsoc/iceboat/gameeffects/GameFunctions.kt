@@ -6,6 +6,7 @@ import mcsoc.iceboat.datatrackers.mapData
 import mcsoc.iceboat.datatrackers.mapdata.NodeData
 import mcsoc.iceboat.datatrackers.playerData
 import mcsoc.iceboat.datatrackers.raceData
+import net.minecraft.ChatFormatting
 import net.minecraft.core.particles.ParticleTypes
 import net.minecraft.network.chat.Component
 import net.minecraft.network.chat.FontDescription
@@ -146,6 +147,7 @@ fun ServerPlayer.sendActionbarHUD(velocity: Double, position: Int, time: Duratio
                     .withBold(true)
                 )
             ))
+            .withStyle(ChatFormatting.UNDERLINE)
     ))
 }
 
