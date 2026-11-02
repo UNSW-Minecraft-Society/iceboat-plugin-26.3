@@ -7,13 +7,18 @@ import mcsoc.iceboat.datatrackers.eventsQueue
 import mcsoc.iceboat.datatrackers.playerData
 import mcsoc.iceboat.utils.CODEC
 import mcsoc.iceboat.gameeffects.beginRace
+import mcsoc.iceboat.gameeffects.showNodeTo
+import mcsoc.iceboat.utils.ticks
 import net.minecraft.core.Holder
+import net.minecraft.core.UUIDUtil
 import net.minecraft.network.chat.Component
 import net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket
 import net.minecraft.network.protocol.game.ClientboundSoundPacket
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.sounds.SoundEvents
 import net.minecraft.sounds.SoundSource
+import net.minecraft.world.phys.Vec3
+import java.util.UUID
 import kotlin.reflect.KClass
 import kotlin.reflect.full.companionObjectInstance
 import kotlin.time.Duration
@@ -131,5 +136,32 @@ sealed class GameEvent(protected val triggerTime: Duration, private val id: Stri
             level.beginRace()
         }
         override fun createEvent(triggerTime: Duration, count: Long) = GameStartCounterEvent(triggerTime, count)
+    }
+
+    class DisplayNodePositionEvent private constructor(triggerTime: Duration, count: Long,
+        val target: UUID, val startPos: Vec3, val between: Vec3, val endsSplit: Boolean, val lengthScaledRounded: Int
+    ) : RecursiveGameEvent<DisplayNodePositionEvent>(triggerTime, id, count, INTERVAL) {
+    constructor(triggerTime: Duration, startTime: Duration, target: UUID, startPos: Vec3, between: Vec3, endsSplit: Boolean, lengthScaledRounded: Int,
+    _d: Unit = Unit) : this(
+            triggerTime, (startTime / INTERVAL).toLong(), target, startPos, between, endsSplit, lengthScaledRounded
+        )
+        companion object : GameEventCompanion<DisplayNodePositionEvent> {
+            val INTERVAL = 5.ticks
+            
+            override val id: String = "gameStart"
+            override val codec: MapCodec<DisplayNodePositionEvent> = RecordCodecBuilder.mapCodec{it.group(
+                Duration.CODEC.fieldOf("time").forGetter(DisplayNodePositionEvent::triggerTime),
+                Codec.LONG.fieldOf("period").forGetter(DisplayNodePositionEvent::count),
+                UUIDUtil.CODEC.fieldOf("target").forGetter(DisplayNodePositionEvent::target),
+                Vec3.CODEC.fieldOf("startPos").forGetter(DisplayNodePositionEvent::startPos),
+                Vec3.CODEC.fieldOf("between").forGetter(DisplayNodePositionEvent::between),
+                Codec.BOOL.fieldOf("endsSplit").forGetter(DisplayNodePositionEvent::endsSplit),
+                Codec.INT.fieldOf("lengthScaledRounded").forGetter(DisplayNodePositionEvent::lengthScaledRounded),
+            ).apply(it, ::DisplayNodePositionEvent)}
+        }
+        
+        override fun recurseTrigger(level: ServerLevel) = showNodeTo(level, target, startPos, between, endsSplit, lengthScaledRounded)
+        override fun concludeTrigger(level: ServerLevel) = recurseTrigger(level)
+        override fun createEvent(triggerTime: Duration, count: Long) = DisplayNodePositionEvent(triggerTime, count, target, startPos, between, endsSplit, lengthScaledRounded)
     }
 }

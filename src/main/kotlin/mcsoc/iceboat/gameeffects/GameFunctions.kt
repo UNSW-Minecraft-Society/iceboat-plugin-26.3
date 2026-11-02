@@ -6,6 +6,7 @@ import mcsoc.iceboat.datatrackers.mapData
 import mcsoc.iceboat.datatrackers.mapdata.NodeData
 import mcsoc.iceboat.datatrackers.playerData
 import mcsoc.iceboat.datatrackers.raceData
+import mcsoc.iceboat.utils.ticks
 import net.minecraft.ChatFormatting
 import net.minecraft.core.particles.ParticleTypes
 import net.minecraft.network.chat.Component
@@ -20,7 +21,6 @@ import net.minecraft.network.protocol.game.ClientboundSetEntityDataPacket
 import net.minecraft.resources.Identifier
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
-import net.minecraft.util.Mth
 import net.minecraft.world.entity.Display
 import net.minecraft.world.entity.EntityType
 import net.minecraft.world.entity.EntityTypes
@@ -33,6 +33,7 @@ import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.phys.Vec3
 import java.math.RoundingMode
 import java.util.UUID
+import kotlin.math.roundToInt
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
@@ -93,23 +94,35 @@ private fun ServerPlayer.onRaceFinished() {
 }
 
 
-// Displays the position of the next checkpoint via targetted particle packets
-fun ServerPlayer.displayNextCheckpoint(nextNode: NodeData) {
-    val range = nextNode.ends
-    for (p in 0..100 step 5) {
-        val pos = Mth.lerp(p.toDouble() / 100.0, range.first, range.second)
-        this.connection.send(ClientboundLevelParticlesPacket(
+fun showNodeTo(level: ServerLevel, player: UUID, startPos: Vec3, between: Vec3, endsSplit: Boolean, lengthScaledRounded: Int) {
+    val player = level.server.playerList.getPlayer(player) ?: return
+    
+    for (p in 0..lengthScaledRounded) {
+        val pos = startPos.add(between.scale(p.toDouble() / lengthScaledRounded))
+        player.connection.send(ClientboundLevelParticlesPacket(
             ParticleTypes.CRIT, true, true,
             pos.x, pos.y + 0.1, pos.z,
             0.1F, 0.1F, 0.1F,
             0.0F, 2
         ))
-        if (nextNode.endsSplit) this.connection.send(ClientboundLevelParticlesPacket(
+        if (endsSplit) player.connection.send(ClientboundLevelParticlesPacket(
             ParticleTypes.HAPPY_VILLAGER, true, true,
             pos.x, pos.y, pos.z,
             0.1F, 0.1F, 0.1F,
             0.0F, 2
         ))
+    }
+}
+
+// Displays the position of the next checkpoint via targetted particle packets
+fun ServerPlayer.showNodeBoundary(node: NodeData, duration: Duration? = null, scale: Double = 10.0) {
+    val range = node.ends
+    val between = range.second.subtract(range.first)
+    val lengthScaledRounded = (between.length() * scale).roundToInt()
+    if (duration == null) {
+        showNodeTo(this.level(), this.uuid, range.first, between, node.endsSplit, lengthScaledRounded)
+    } else {
+        this.level().eventsQueue.queueShowNodePosition(duration, this.uuid, range.first, between, node.endsSplit, lengthScaledRounded)
     }
 }
 
@@ -247,7 +260,7 @@ fun ServerLevel.tickPlayerNodeTracking(playerId: UUID, finishedPlayers: MutableC
             }
         } else {
             // beacon beam at next checkpoint?
-            player.displayNextCheckpoint(nextNode)
+            player.showNodeBoundary(nextNode)
         }
         
         // find average velocity over last N ticks

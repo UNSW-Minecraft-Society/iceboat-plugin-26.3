@@ -104,6 +104,13 @@ fun registerCommands() {
                     .executes(CommandActions::fixMap)
                 )
             )
+            .then(Commands.literal("showNodes")
+                .then(MAP_NAME_ARGUMENT_NODE
+                    .then(PLAYERS_ARGUMENT_NODE
+                        .executes(CommandActions::showMapNodes)
+                    )
+                )
+            )
             .then(Commands.literal("clear")
                 .then(MAP_NAME_ARGUMENT_NODE
                     .executes(CommandActions::clearMap)

@@ -12,13 +12,16 @@ import mcsoc.iceboat.datatrackers.mapdata.NodeData
 import mcsoc.iceboat.datatrackers.playerData
 import mcsoc.iceboat.datatrackers.raceData
 import mcsoc.iceboat.gameeffects.endRound
+import mcsoc.iceboat.gameeffects.showNodeBoundary
 import mcsoc.iceboat.gameeffects.startRound
+import mcsoc.iceboat.utils.ticks
 import net.minecraft.commands.CommandSourceStack
 import net.minecraft.commands.arguments.EntityArgument
 import net.minecraft.commands.arguments.UuidArgument
 import net.minecraft.commands.arguments.coordinates.Vec3Argument
 import net.minecraft.network.chat.Component
 import net.minecraft.world.phys.Vec3
+import kotlin.time.Duration.Companion.seconds
 
 
 private val CANNOT_MODIFY_MAP: (String) -> Component = {Component.literal("Cannot modify active map '$it'!")}
@@ -125,6 +128,18 @@ object CommandActions {
         val source = ctx.source
         val mapId = StringArgumentType.getString(ctx, MAP_NAME_ARGUMENT)
         source.level.mapData.fixMap(mapId)
+        return 1
+    }
+    
+    fun showMapNodes(ctx: CommandContext<CommandSourceStack>): Int {
+        val source = ctx.source
+        val mapId = StringArgumentType.getString(ctx, MAP_NAME_ARGUMENT)
+        val targets = EntityArgument.getPlayers(ctx, PLAYERS_ARGUMENT)
+        for (nodeInfo in source.level.mapData.getAllMapNodes(mapId)) {
+            for (target in targets) {
+                target.showNodeBoundary(nodeInfo.second, 1.seconds)
+            }
+        }
         return 1
     }
     

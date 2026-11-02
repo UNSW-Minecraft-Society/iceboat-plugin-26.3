@@ -2,7 +2,9 @@ package mcsoc.iceboat.datatrackers.gameevents
 
 import mcsoc.iceboat.datatrackers.gameClock
 import net.minecraft.server.level.ServerLevel
+import net.minecraft.world.phys.Vec3
 import java.util.Queue
+import java.util.UUID
 import kotlin.time.Duration
 
 
@@ -12,6 +14,10 @@ interface GameEventsExposer {
     fun reset()
     
     fun queueGameStartCounter(countdownTime: Duration)
+    fun queueShowNodePosition(displayTime: Duration, target: UUID, 
+        startPos: Vec3, between: Vec3, 
+        endsSplit: Boolean, lengthScaledRounded: Int
+    )
 
     fun tick()
 }
@@ -29,6 +35,13 @@ interface GameEventsHolder : GameEventsExposer {
     
     override fun queueGameStartCounter(countdownTime: Duration) {
         queueEvent(GameEvent.GameStartCounterEvent(level.gameClock.time, countdownTime))
+    }
+    
+    override fun queueShowNodePosition(displayTime: Duration, target: UUID, 
+        startPos: Vec3, between: Vec3, 
+        endsSplit: Boolean, lengthScaledRounded: Int
+    ) {
+        queueEvent(GameEvent.DisplayNodePositionEvent(level.gameClock.time, displayTime, target, startPos, between, endsSplit, lengthScaledRounded))
     }
     
     private fun dequeueEventsToTrigger(): Iterable<GameEvent> {
