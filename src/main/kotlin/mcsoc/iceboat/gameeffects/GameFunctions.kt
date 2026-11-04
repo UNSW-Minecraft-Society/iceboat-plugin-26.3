@@ -1,12 +1,13 @@
 package mcsoc.iceboat.gameeffects
 
+import mcsoc.iceboat.IceboatPlugin
 import mcsoc.iceboat.datatrackers.eventsQueue
+import mcsoc.iceboat.datatrackers.gameClock
 import mcsoc.iceboat.datatrackers.levelBossBars
 import mcsoc.iceboat.datatrackers.mapData
 import mcsoc.iceboat.datatrackers.mapdata.NodeData
 import mcsoc.iceboat.datatrackers.playerData
 import mcsoc.iceboat.datatrackers.raceData
-import mcsoc.iceboat.utils.ticks
 import net.minecraft.ChatFormatting
 import net.minecraft.core.particles.ParticleTypes
 import net.minecraft.network.chat.Component
@@ -130,7 +131,7 @@ fun ServerPlayer.sendActionbarHUD(velocity: Double, position: Int, time: Duratio
     val velocityString = velocity.toBigDecimal().setScale(3, RoundingMode.FLOOR).toString().substring(0 until 5)
     val posString = position.toString()
     val timeString = time.toComponents{ minutes, seconds, nanos -> 
-        "$minutes".padStart(2, '0') + ":" + "$seconds".padStart(2, '0') + ":" + "$nanos".padStart(2, '0').substring(0 until 2)
+        "$minutes".padStart(2, '0') + ":" + "$seconds".padStart(2, '0') + ":" + "$nanos".padStart(2, '0').substring(0..2)
     }
     
     this.connection.send(ClientboundSetActionBarTextPacket(
@@ -237,9 +238,6 @@ fun ServerLevel.tickPlayerNodeTracking(playerId: UUID, finishedPlayers: MutableC
     // skip if player isn't part of the race or has finished
     val curr = playerData.currNode ?: return
     
-    // tick player time (even if offline)
-    playerData.timer.tick()
-    
     // skip if player is offline
     val player = level.server.playerList.getPlayer(playerId) ?: return
     
@@ -248,15 +246,15 @@ fun ServerLevel.tickPlayerNodeTracking(playerId: UUID, finishedPlayers: MutableC
     val nextNode = level.mapData.getNode(next) ?: throw StringIndexOutOfBoundsException("tick")
     
     oldPosMap[playerId]?.let{
+        val raceTime = this.raceData.toRaceTime(this.gameClock.time)
         if (nextNode.passedBy(it.last(), player.position())) {
-            player.trackTimeAtNode(playerData.lapsCompleted, next, playerData.timer.time)
+            player.trackTimeAtNode(next, raceTime)
             if (playerData.lapsCompleted >= level.raceData.numLaps) {
                 // trigger win
                 finishedPlayers.add(playerId)
                 playerData.currNode = null
             } else {
                 playerData.currNode = next
-                if (nextNode.endsSplit) playerData.timer.reset()
             }
         } else {
             // beacon beam at next checkpoint?
@@ -275,7 +273,7 @@ fun ServerLevel.tickPlayerNodeTracking(playerId: UUID, finishedPlayers: MutableC
         //  *72 to convert from m/t to km/h
         val velocity: Double = diffs.sumOf(Vec3::length) * 72.0 / it.size
         val position: Int = this.raceData.playerPositions.indexOf(playerId) + 1
-        val time = playerData.timer.time
+        val time = playerData.toSplitTime(raceTime)
         player.sendActionbarHUD(velocity, position, time)
         
     } ?: run { oldPosMap[playerId] = ArrayDeque(VELOCITY_AVERAGE_TICKS) }
@@ -321,20 +319,22 @@ fun ServerLevel.startRound(mapId: String, numLaps: UInt = 3u): Int {
         this.endRound(true)
     }
     
-    val playerData = this.playerData
-
     // if not enough start positions
-    if (playerData.activePlayers.size > mapData.startPositions.size) return 3
-    this.raceData.setActiveMap(mapId)
+    if (this.playerData.activePlayers.size > mapData.startPositions.size) return 3
+    this.raceData.startRoundWith(mapId, numLaps)
     
-    this.raceData.numLaps = numLaps
+    val numSplits = this.mapData.getAllMapNodes(mapId).count{it.second.endsSplit}.toUInt()
+    IceboatPlugin.LOGGER.info("numSplits: {}", numSplits)
     
     val startPositions = mapData.startPositions.iterator()
-    for (playerId in playerData.activePlayers.shuffled()) {
+    for (playerId in this.playerData.activePlayers.shuffled()) {
+        val playerData = this.playerData.getOrInitPlayerData(playerId)
+        playerData.resetData()
+        playerData.initGameData(numLaps, numSplits)
+        
         val startPos = startPositions.next()
         
-        val isSillyMode = this.raceData.isSillyMode
-        (if (isSillyMode) spawnRandomTamedHorse(this) else spawnRandomChestBoat(this)).also{
+        (if (this.raceData.isSillyMode) spawnRandomTamedHorse(this) else spawnRandomChestBoat(this)).also{
             it.teleportTo(this, startPos.x, startPos.y, startPos.z, emptySet(), firstNodeData.yawToNext, 30F, true)
             this.setChunkForced(startPos.x.toInt() shr 4, startPos.z.toInt() shr 4, true)
             this.raceData.playerToBoatMap[playerId] = it.uuid
@@ -346,7 +346,6 @@ fun ServerLevel.startRound(mapId: String, numLaps: UInt = 3u): Int {
         }
     }
     
-
     // TODO make this trigger a countdown
     this.eventsQueue.queueGameStartCounter(5.seconds)
     
@@ -362,7 +361,6 @@ fun ServerLevel.beginRace() {
     
     for (playerId in playerData.activePlayers) {
         val playerData = playerData.getOrInitPlayerData(playerId).also {
-            it.resetData()
             it.currNode = mapData.firstNodeId
         }
         
@@ -379,7 +377,7 @@ fun ServerLevel.beginRace() {
         
         this.raceData.playerPositions.addFirst(playerId)
     }
-    this.raceData.startRace()
+    this.raceData.beginRace(this.gameClock.time)
 }
 
 fun ServerLevel.endRound(keepPlayers: Boolean = false) {

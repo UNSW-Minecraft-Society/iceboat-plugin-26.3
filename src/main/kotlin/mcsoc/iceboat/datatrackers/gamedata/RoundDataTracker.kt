@@ -8,32 +8,39 @@ import mcsoc.iceboat.datatrackers.LevelTiedData
 import mcsoc.iceboat.utils.CODEC
 import net.minecraft.core.UUIDUtil
 import java.util.UUID
+import kotlin.time.Duration
 
 
-class GameDataTracker() : LevelTiedData(), GameDataHolder {
+class RoundDataTracker() : LevelTiedData(), GameDataHolder {
     override fun getType() = LevelDataType.RaceData
     companion object {
-        val CODEC: MapCodec<GameDataTracker> = RecordCodecBuilder.mapCodec{it.group(
-            Codec.STRING.fieldOf("activeMapKey").forGetter(GameDataTracker::activeMapKey),
-            UInt.CODEC.fieldOf("numLaps").forGetter(GameDataTracker::numLaps),
-            Codec.unboundedMap(UUIDUtil.STRING_CODEC, LapProgress.CODEC).listOf().fieldOf("nodeProgress").forGetter(GameDataTracker::nodeProgress),
-            GamePhase.CODEC.fieldOf("gamePhase").forGetter(GameDataTracker::phase)
-        ).apply(it, ::GameDataTracker)}
+        val CODEC: MapCodec<RoundDataTracker> = RecordCodecBuilder.mapCodec{it.group(
+            Codec.STRING.fieldOf("activeMapKey").forGetter(RoundDataTracker::activeMapKey),
+            GamePhase.CODEC.fieldOf("gamePhase").forGetter(RoundDataTracker::phase),
+            Duration.CODEC.fieldOf("startTime").forGetter(RoundDataTracker::startTime),
+            UInt.CODEC.fieldOf("numLaps").forGetter(RoundDataTracker::numLaps),
+            Codec.unboundedMap(UUIDUtil.STRING_CODEC, LapProgress.CODEC).listOf().fieldOf("nodeProgress").forGetter(RoundDataTracker::nodeProgress)
+        ).apply(it, ::RoundDataTracker)}
     }
-    private constructor(activeMapKey: String, numlaps: UInt, nodeProgress: MutableList<MutableMap<UUID, LapProgress>>, phase: GamePhase) : this() {
+    private constructor(activeMapKey: String, phase: GamePhase, startTime: Duration, numlaps: UInt, nodeProgress: MutableList<MutableMap<UUID, LapProgress>>) : this() {
         this.activeMapKey = activeMapKey
+        this.phase = phase
+        this.startTime = startTime
         this.numLaps = numlaps
         nodeProgress.map{it.toMutableMap()}.forEach(this.nodeProgress::add)
-        this.phase = phase
     }
     
     override var activeMapKey: String = ""
         get() = if (phase.isRunning) field else "" 
+        
     override var phase: GamePhase = GamePhase.Inactive
+    override var startTime: Duration = Duration.ZERO
     override var numLaps: UInt = 3u
+    
     override val nodeProgress: MutableList<MutableMap<UUID, LapProgress>> = mutableListOf()
     override val playerToBoatMap: MutableMap<UUID, UUID> = mutableMapOf()
     override val vehicleToDisplayMap: MutableMap<UUID, Pair<Int, UUID>> = mutableMapOf()
     override val playerPositions: MutableList<UUID> = mutableListOf()
+    
     override var isSillyMode: Boolean = false
 }

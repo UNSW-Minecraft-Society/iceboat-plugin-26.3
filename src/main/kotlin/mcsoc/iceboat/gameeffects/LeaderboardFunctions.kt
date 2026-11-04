@@ -8,6 +8,7 @@ import mcsoc.iceboat.datatrackers.playerData
 import mcsoc.iceboat.datatrackers.raceData
 import net.minecraft.ChatFormatting
 import net.minecraft.network.chat.Component
+import net.minecraft.network.chat.Style
 import net.minecraft.network.chat.numbers.BlankFormat
 import net.minecraft.network.chat.numbers.FixedFormat
 import net.minecraft.server.level.ServerLevel
@@ -34,7 +35,7 @@ private val playerPositionsSort: (ServerLevel) -> ((UUID, UUID) -> Int) = {
     val playersData = it.playerData
     
     {p1, p2 ->
-        val nodesCompare = playersData.getOrInitPlayerData(p2).nodesPassed.compareTo(playersData.getOrInitPlayerData(p1).nodesPassed)
+        val nodesCompare = playersData.getOrInitPlayerData(p2).totalNodesPassed.compareTo(playersData.getOrInitPlayerData(p1).totalNodesPassed)
         if (nodesCompare != 0) nodesCompare
         else playersData.getOrInitPlayerData(p1).nodePosition.compareTo(playersData.getOrInitPlayerData(p2).nodePosition)
     }
@@ -44,32 +45,56 @@ private val playerPositionsSort: (ServerLevel) -> ((UUID, UUID) -> Int) = {
  * Arguments
  *  level - The world (REVOLVING)
  */
-fun ServerLevel.trackPlayerTimeAtNode(lap: UInt, playerId: UUID, nodeId: UUID, splitTime: Duration) {
+fun ServerLevel.trackPlayerTimeAtNode(playerId: UUID, nodeId: UUID, raceTime: Duration) {
     val nextNode = this.mapData.getNode(nodeId) ?: return
 
-    this.playerData.getOrInitPlayerData(playerId).nodePosition = this.raceData.getNodeProgress(nodeId, lap)?.numPassed ?: 0u
-    val isNewFastestTime = this.raceData.trackPlayerPassed(nodeId, lap, playerId, splitTime)
+    val playerData = this.playerData.getOrInitPlayerData(playerId)
+    val lapNumber = playerData.lapsCompleted.toInt()
+    val splitNumber = playerData.currentSplit.toInt()
     
-    if (nextNode.endsSplit || nextNode.isFirst) {
-        if (this.playerData.trackPlayerTimeAtNode(playerId, nodeId, nextNode.isFirst, splitTime)) {
-            val player = this.server.playerList.getPlayer(playerId)
-            player?.sendSystemMessage(Component.literal("new pb: $splitTime!"))
-        } else {
-            val player = this.server.playerList.getPlayer(playerId)
-            player?.sendSystemMessage(Component.literal("split time: $splitTime."))
+    playerData.nodePosition = this.raceData.getNodeProgress(nodeId, lapNumber)?.numPassed ?: 0u
+
+    this.playerData.trackPlayerTimeAtNode(playerId, raceTime, nextNode.isFirst, nextNode.endsSplit)?.let{
+        val splitTime = playerData.mostRecentTime
+        val splitTimeString = splitTime.toComponents{ minutes, seconds, nanos -> 
+            "$minutes".padStart(2, '0') + ":" + "$seconds".padStart(2, '0') + ":" + "$nanos".padStart(2, '0').substring(0..2)
         }
-        if (isNewFastestTime) {
-            // announce new fastest time idk
-        }
-    } else {
-        this.playerData.trackPlayerPassingNode(playerId, nodeId)
+        
+        this.server.playerList.getPlayer(playerId)?.sendSystemMessage(
+            Component.literal("Time for Split ${splitNumber + 1}: ")
+            .append(Component.literal(splitTimeString).withStyle(Style.EMPTY
+                .withUnderlined(true)
+                .withColor(ChatFormatting.GRAY)
+            ))
+            .append(
+                if (lapNumber != 0) {
+                    val deltaString = (splitTime - playerData.splitTimes[lapNumber - 1][splitNumber]).absoluteValue
+                        .toComponents{ minutes, seconds, nanos -> 
+                            "$seconds" + "." + "$nanos".padStart(2, '0').substring(0..2) + "s"
+                        }
+                    
+                    Component.literal(" (").withStyle(ChatFormatting.GRAY).append(
+                        if (it) {
+                            Component.literal("-$deltaString").withStyle(ChatFormatting.DARK_GREEN)
+                        } else {
+                            Component.literal("+$deltaString").withStyle(ChatFormatting.RED)
+                        }
+                    ).append(Component.literal(")").withStyle(ChatFormatting.GRAY))
+                } else {
+                    Component.empty()
+                }
+            ).append(Component.literal("."))
+        )
     }
-    
+    if (this.raceData.trackPlayerPassed(nodeId, lapNumber.toUInt(), playerId, playerData.mostRecentTime) && lapNumber > 0) {
+        // announce new fastest time idk
+    }
+        
     this.raceData.sortPositions(this, playerPositionsSort)
     this.updateTimeDisplay()
 }
-fun ServerPlayer.trackTimeAtNode(lap: UInt, nodeId: UUID, splitTime: Duration) 
-    = this.level().trackPlayerTimeAtNode(lap, this.uuid, nodeId, splitTime)
+fun ServerPlayer.trackTimeAtNode(nodeId: UUID, raceTime: Duration) 
+    = this.level().trackPlayerTimeAtNode(this.uuid, nodeId, raceTime)
 
 
 // set the LAPS display at the top of the sidebar
@@ -97,7 +122,7 @@ fun ServerLevel.updateTimeDisplay() {
         val player: ServerPlayer = this.server.playerList.getPlayer(playerId) ?: continue
         val playerData = this.playerData.getOrInitPlayerData(playerId)
         
-        val position = (playerData.nodesPassed * POSITION_STEP - playerData.nodePosition).toInt()
+        val position = (playerData.totalNodesPassed * POSITION_STEP - playerData.nodePosition).toInt()
         val positionString = if (playerData.lapsCompleted < this.raceData.numLaps) {
             Component.literal("${playerData.lapsCompleted + 1u}".padStart(2) + " | " + "${playerData.nodesThisLapPassed}".padEnd(3))
         } else {
