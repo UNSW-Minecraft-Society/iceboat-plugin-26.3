@@ -8,6 +8,7 @@ import mcsoc.iceboat.datatrackers.mapData
 import mcsoc.iceboat.datatrackers.mapdata.NodeData
 import mcsoc.iceboat.datatrackers.playerData
 import mcsoc.iceboat.datatrackers.raceData
+import mcsoc.iceboat.utils.formatMinuteSecondMillis
 import net.minecraft.ChatFormatting
 import net.minecraft.core.particles.ParticleTypes
 import net.minecraft.network.chat.Component
@@ -130,9 +131,7 @@ fun ServerPlayer.showNodeBoundary(node: NodeData, duration: Duration? = null, sc
 fun ServerPlayer.sendActionbarHUD(velocity: Double, position: Int, time: Duration) {
     val velocityString = velocity.toBigDecimal().setScale(3, RoundingMode.FLOOR).toString().substring(0 until 5)
     val posString = position.toString()
-    val timeString = time.toComponents{ minutes, seconds, nanos -> 
-        "$minutes".padStart(2, '0') + ":" + "$seconds".padStart(2, '0') + ":" + "$nanos".padStart(2, '0').substring(0..2)
-    }
+    val timeString = time.formatMinuteSecondMillis
     
     this.connection.send(ClientboundSetActionBarTextPacket(
         Component.empty()

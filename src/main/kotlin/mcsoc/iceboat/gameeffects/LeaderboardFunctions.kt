@@ -6,6 +6,8 @@ import mcsoc.iceboat.datatrackers.levelScoreboard
 import mcsoc.iceboat.datatrackers.mapData
 import mcsoc.iceboat.datatrackers.playerData
 import mcsoc.iceboat.datatrackers.raceData
+import mcsoc.iceboat.utils.formatMinuteSecondMillis
+import mcsoc.iceboat.utils.formatSecondMillis
 import net.minecraft.ChatFormatting
 import net.minecraft.network.chat.Component
 import net.minecraft.network.chat.Style
@@ -56,35 +58,34 @@ fun ServerLevel.trackPlayerTimeAtNode(playerId: UUID, nodeId: UUID, raceTime: Du
 
     this.playerData.trackPlayerTimeAtNode(playerId, raceTime, nextNode.isFirst, nextNode.endsSplit)?.let{
         val splitTime = playerData.mostRecentTime
-        val splitTimeString = splitTime.toComponents{ minutes, seconds, nanos -> 
-            "$minutes".padStart(2, '0') + ":" + "$seconds".padStart(2, '0') + ":" + "$nanos".padStart(2, '0').substring(0..2)
-        }
+        val splitTimeString = splitTime.formatMinuteSecondMillis
         
-        this.server.playerList.getPlayer(playerId)?.sendSystemMessage(
-            Component.literal("Time for Split ${splitNumber + 1}: ")
+        val splitMsg = Component.literal("Time for Split ${splitNumber + 1}: ")
             .append(Component.literal(splitTimeString).withStyle(Style.EMPTY
                 .withUnderlined(true)
                 .withColor(ChatFormatting.GRAY)
             ))
             .append(
                 if (lapNumber != 0) {
-                    val deltaString = (splitTime - playerData.splitTimes[lapNumber - 1][splitNumber]).absoluteValue
-                        .toComponents{ minutes, seconds, nanos -> 
-                            "$seconds" + "." + "$nanos".padStart(2, '0').substring(0..2) + "s"
-                        }
+                    // positive means took longer
+                    val splitDelta = splitTime - playerData.splitTimes[lapNumber - 1][splitNumber]
+                    val deltaString = splitDelta.absoluteValue.formatSecondMillis
                     
                     Component.literal(" (").withStyle(ChatFormatting.GRAY).append(
-                        if (it) {
-                            Component.literal("-$deltaString").withStyle(ChatFormatting.DARK_GREEN)
+                        if (splitDelta.isNegative()) {
+                            Component.literal("-$deltaString").withStyle(ChatFormatting.GREEN).append(
+                                if (it) {
+                                    Component.literal(" (PB)").withStyle(ChatFormatting.DARK_GREEN)
+                                } else Component.empty()
+                            )
                         } else {
                             Component.literal("+$deltaString").withStyle(ChatFormatting.RED)
                         }
                     ).append(Component.literal(")").withStyle(ChatFormatting.GRAY))
-                } else {
-                    Component.empty()
-                }
+                } else Component.empty()
             ).append(Component.literal("."))
-        )
+        
+        this.server.playerList.getPlayer(playerId)?.sendSystemMessage(splitMsg)
     }
     if (this.raceData.trackPlayerPassed(nodeId, lapNumber.toUInt(), playerId, playerData.mostRecentTime) && lapNumber > 0) {
         // announce new fastest time idk
