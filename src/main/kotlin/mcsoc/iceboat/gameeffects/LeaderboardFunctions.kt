@@ -102,9 +102,7 @@ fun ServerPlayer.trackTimeAtNode(nodeId: UUID, raceTime: Duration)
 fun ServerLevel.addLapsIndicatorToSidebar() {
     val scoreboard = this.levelScoreboard
     scoreboard.tryAddObjective(SIDEBAR_TIME_ID, SIDEBAR_POSITIONS_DISPLAY, BlankFormat.INSTANCE)
-    
-    IceboatPlugin.LOGGER.info("phase: {}, prac: {}", this.raceData.phase, this.raceData.phase.isPractice)
-    
+        
     val lapsString = if (this.raceData.phase.isPractice == true) "INFINITE"
         else "${this.raceData.numLaps.toInt()}".padStart(2).padEnd(8)
     val numberFormat = FixedFormat(Component.literal(lapsString)
