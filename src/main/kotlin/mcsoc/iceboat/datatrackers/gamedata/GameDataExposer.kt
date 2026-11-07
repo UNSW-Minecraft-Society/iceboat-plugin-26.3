@@ -37,10 +37,11 @@ data class LapProgress(
 }
 
 
-enum class GamePhase(val isRunning: Boolean, val isActive: Boolean) : StringRepresentable {
+enum class GamePhase(val isRunning: Boolean, val isActive: Boolean, val isPractice: Boolean? = null) : StringRepresentable {
     Inactive(false, false),
     Countdown(true, false),
-    Active(true, true);
+    Practice(true, true, true),
+    Active(true, true, false);
 
     override fun getSerializedName(): String = this.name
     
@@ -55,6 +56,7 @@ interface GameDataExposer {
     val activeMapKey: String
     fun setActiveMap(key: String)
     fun startRace()
+    fun startPracticeRace()
     fun setInactive()
     
     var numLaps: UInt
@@ -102,6 +104,9 @@ internal interface GameDataHolder : GameDataExposer {
         playerToBoatMap.clear()
     }
     override fun setActiveMap(key: String) = setActiveMapInternal(key)
+    override fun startPracticeRace() {
+        phase = GamePhase.Practice
+    }
     override fun startRace() {
         phase = GamePhase.Active
     }

@@ -2,11 +2,11 @@ package mcsoc.iceboat.gameeffects
 
 import mcsoc.iceboat.datatrackers.eventsQueue
 import mcsoc.iceboat.datatrackers.levelBossBars
+import mcsoc.iceboat.datatrackers.levelScoreboard
 import mcsoc.iceboat.datatrackers.mapData
 import mcsoc.iceboat.datatrackers.mapdata.NodeData
 import mcsoc.iceboat.datatrackers.playerData
 import mcsoc.iceboat.datatrackers.raceData
-import mcsoc.iceboat.utils.ticks
 import net.minecraft.ChatFormatting
 import net.minecraft.core.particles.ParticleTypes
 import net.minecraft.network.chat.Component
@@ -82,17 +82,6 @@ private fun spawnRandomTamedHorse(level: ServerLevel, prespawn: (Horse) -> Unit 
         }
 }
 
-private fun ServerPlayer.onRaceFinished() {
-    val level = this.level()
-    
-    this.controlledVehicle?.discard()
-    // "kill" any leftover indicators
-    level.broadcastPositionVisually(this.uuid)
-    level.levelBossBars.removePlayerFrom(this.uuid, this)
-    
-    this.setGameMode(GameType.SPECTATOR)
-}
-
 
 fun showNodeTo(level: ServerLevel, player: UUID, startPos: Vec3, between: Vec3, endsSplit: Boolean, lengthScaledRounded: Int) {
     val player = level.server.playerList.getPlayer(player) ?: return
@@ -114,6 +103,17 @@ fun showNodeTo(level: ServerLevel, player: UUID, startPos: Vec3, between: Vec3, 
     }
 }
 
+fun showPosTo(level: ServerLevel, player: UUID, position: Vec3) {
+    val player = level.server.playerList.getPlayer(player) ?: return
+    
+    player.connection.send(ClientboundLevelParticlesPacket(
+        ParticleTypes.CRIT, true, true,
+        position.x, position.y + 0.1, position.z,
+        0.1F, 0.1F, 0.1F,
+        0.0F, 2
+    ))
+}
+
 // Displays the position of the next checkpoint via targetted particle packets
 fun ServerPlayer.showNodeBoundary(node: NodeData, duration: Duration? = null, scale: Double = 10.0) {
     val range = node.ends
@@ -125,6 +125,16 @@ fun ServerPlayer.showNodeBoundary(node: NodeData, duration: Duration? = null, sc
         this.level().eventsQueue.queueShowNodePosition(duration, this.uuid, range.first, between, node.endsSplit, lengthScaledRounded)
     }
 }
+
+// Displays some position via targetted particle packets
+fun ServerPlayer.showPosition(position: Vec3, duration: Duration? = null) {
+    if (duration == null) {
+        showPosTo(this.level(), this.uuid, position)
+    } else {
+        this.level().eventsQueue.queueShowPosition(duration, this.uuid, position)
+    }
+}
+
 
 fun ServerPlayer.sendActionbarHUD(velocity: Double, position: Int, time: Duration) {
     val velocityString = velocity.toBigDecimal().setScale(3, RoundingMode.FLOOR).toString().substring(0 until 5)
@@ -288,7 +298,7 @@ fun ServerLevel.tickPlayerNodeTracking(playerId: UUID, finishedPlayers: MutableC
     }        
 }
 
-/* Arguments
+/* ArgumentsLeave
  *  finishedPlayers - A list of players who finished
  */
 fun ServerLevel.broadcastFinishedPlayers(finishedPlayers: MutableCollection<UUID>) {
@@ -299,7 +309,7 @@ fun ServerLevel.broadcastFinishedPlayers(finishedPlayers: MutableCollection<UUID
             val position = finishedPlayerData.nodePosition + 1u
             if (targetId == finishedPlayerId) {
                 target.sendSystemMessage(Component.literal("You finished in position $position!"))
-                target.onRaceFinished()
+                target.onLeaveRace()
             } else {
                 target.sendSystemMessage(Component.literal("${finishedPlayerData.playerName} finished in position $position!"))
             }
@@ -307,13 +317,92 @@ fun ServerLevel.broadcastFinishedPlayers(finishedPlayers: MutableCollection<UUID
     }
 }
 
+
+// for setting up player
+private fun ServerLevel.setupPlayerForRace(player: ServerPlayer, startNodeData: NodeData, startPos: Vec3) {
+    val playerData = this.playerData.getOrInitPlayerData(player)
+    // clear player data
+    playerData.resetData()
+
+    // spawn and setup vehicle
+    // forceload vehicle chunk since players will be in spectator
+    val isSillyMode = this.raceData.isSillyMode
+    (if (isSillyMode) spawnRandomTamedHorse(this) else spawnRandomChestBoat(this)).also{
+        it.teleportTo(this, startPos.x, startPos.y, startPos.z, emptySet(), startNodeData.yawToNext, 30F, true)
+        this.setChunkForced(startPos.x.toInt() shr 4, startPos.z.toInt() shr 4, true)
+        this.raceData.playerToBoatMap[player.uuid] = it.uuid
+    }
+}
+
+// for start round
+fun ServerPlayer.onStartRound(level: ServerLevel, startNodeData: NodeData, startPos: Vec3) {
+    level.setupPlayerForRace(this, startNodeData, startPos)
+
+    // tp player above vehicle and set gamemode to spectator
+    this.setGameMode(GameType.SPECTATOR)
+    this.teleportTo(level, startPos.x, startPos.y, startPos.z, emptySet(), startNodeData.yawToNext, 30F, true)
+}
+
+// for after countdown
+fun ServerPlayer.onBeginRace(level: ServerLevel, startNodeId: UUID) {
+    // set player node
+    level.playerData.getOrInitPlayerData(this).currNode = startNodeId
+    
+    // add to player positions
+    level.raceData.playerPositions.addFirst(this.uuid)
+    
+    // set to adventure mode
+    // mount player into vehicle
+    val vehicle = level.getEntity(level.raceData.playerToBoatMap[this.uuid]!!)!!
+    this.setGameMode(GameType.ADVENTURE)
+    this.startRiding(vehicle, true, true)
+    
+    // unforceload chunk
+    val chunkPos = vehicle.chunkPosition()
+    level.setChunkForced(chunkPos.x, chunkPos.z, false)
+    
+    // add to scoreboard tracking
+    // add to bossbar tracking
+    level.initScoreboardFor(this.uuid)
+    level.initProgressBarFor(this.uuid)
+}
+
+fun ServerLevel.addPlayerToRace(player: ServerPlayer) {
+    level.playerData.activePlayers.add(player.uuid)
+    
+    if (this.raceData.phase.isRunning) {
+        // if these values are null, something terrible has happened!
+        val startNodeId = this.mapData.getMapData(this.raceData.activeMapKey)!!.firstNodeId
+        player.onJoinRunningRace(this, startNodeId, this.mapData.getNode(startNodeId)!!)
+    }
+}
+// for joining mid race (lobby)
+fun ServerPlayer.onJoinRunningRace(level: ServerLevel, startNodeId: UUID, startNodeData: NodeData) {    
+    level.setupPlayerForRace(this, startNodeData, startNodeData.pos)
+    this.onBeginRace(level, startNodeId)
+}
+
+
+fun ServerPlayer.onLeaveRace() {
+    val level = this.level()
+    
+    this.controlledVehicle?.discard()
+    // "kill" any leftover indicators
+    level.broadcastPositionVisually(this.uuid)
+    level.levelBossBars.removePlayerFrom(this.uuid, this)
+    level.removeScoreboardFor(this.uuid)
+    
+    this.setGameMode(GameType.SPECTATOR)
+}
+
+
 /* Codes:
  *  0 - Success
  *  1 - Map key does not exist
  *  2 - First map node does not exist
  *  3 - Not enough start positions
  */
-fun ServerLevel.startRound(mapId: String, numLaps: UInt = 3u): Int {
+fun ServerLevel.startRound(mapId: String, numLaps: UInt = 3u, practice: Boolean = false): Int {
     val mapData = this.mapData.getMapData(mapId) ?: return 1
     val firstNodeData = level.mapData.getNode(mapData.firstNodeId) ?: return 2
         
@@ -326,71 +415,45 @@ fun ServerLevel.startRound(mapId: String, numLaps: UInt = 3u): Int {
     // if not enough start positions
     if (playerData.activePlayers.size > mapData.startPositions.size) return 3
     this.raceData.setActiveMap(mapId)
-    
     this.raceData.numLaps = numLaps
     
     val startPositions = mapData.startPositions.iterator()
-    for (playerId in playerData.activePlayers.shuffled()) {
-        val startPos = startPositions.next()
-        
-        val isSillyMode = this.raceData.isSillyMode
-        (if (isSillyMode) spawnRandomTamedHorse(this) else spawnRandomChestBoat(this)).also{
-            it.teleportTo(this, startPos.x, startPos.y, startPos.z, emptySet(), firstNodeData.yawToNext, 30F, true)
-            this.setChunkForced(startPos.x.toInt() shr 4, startPos.z.toInt() shr 4, true)
-            this.raceData.playerToBoatMap[playerId] = it.uuid
-        }
-        
-        this.server.playerList.getPlayer(playerId)?.let{
-            it.setGameMode(GameType.SPECTATOR)
-            it.teleportTo(this, startPos.x, startPos.y, startPos.z, emptySet(), firstNodeData.yawToNext, 30F, true)
-        }
+    for (player in playerData.activePlayers.shuffled().mapNotNull(this.server.playerList::getPlayer)) {
+        player.onStartRound(this, firstNodeData, startPositions.next())
     }
     
-
-    // TODO make this trigger a countdown
-    this.eventsQueue.queueGameStartCounter(5.seconds)
+    // if lobby or practice, start immediately, otherwise trigger the countdown
+    if (practice) this.beginRace(true)
+        else this.eventsQueue.queueGameStartCounter(5.seconds)
     
     return 0
 }
 
 
-fun ServerLevel.beginRace() {
+fun ServerLevel.beginRace(practice: Boolean = false) {
     val mapData = this.mapData.getMapData(this.raceData.activeMapKey) ?: return
-    val firstNodeData = level.mapData.getNode(mapData.firstNodeId) ?: return
+    
+    if (practice) this.raceData.startPracticeRace()
+        else this.raceData.startRace()
+        
     this.updateTimeDisplay()
     this.addLapsIndicatorToSidebar()
     
-    for (playerId in playerData.activePlayers) {
-        val playerData = playerData.getOrInitPlayerData(playerId).also {
-            it.resetData()
-            it.currNode = mapData.firstNodeId
-        }
-        
-        this.initScoreboardFor(playerId)
-        this.initProgressBarFor(playerId)
-        
-        val vehicle = this.getEntity(this.raceData.playerToBoatMap[playerId]!!)!!
-        val chunkPos = vehicle.chunkPosition()
-        this.setChunkForced(chunkPos.x, chunkPos.z, false)
-        
-        val player = this.server.playerList.getPlayer(playerId) ?: continue
-        player.setGameMode(GameType.ADVENTURE)
-        player.startRiding(vehicle, true, true)
-        
-        this.raceData.playerPositions.addFirst(playerId)
+    for (player in playerData.activePlayers.shuffled().mapNotNull(this.server.playerList::getPlayer)) {
+        player.onBeginRace(this, mapData.firstNodeId)
     }
-    this.raceData.startRace()
 }
 
 fun ServerLevel.endRound(keepPlayers: Boolean = false) {
     oldPosMap.clear()
     val finalPositions: MutableList<Pair<UInt, String>> = mutableListOf()
-    for (playerData in this.playerData.activePlayerData) {
-        if (playerData.lapsCompleted >= this.raceData.numLaps) {
-            finalPositions.add(Pair(playerData.nodePosition + 1u, playerData.playerName))
-        } else {
-            finalPositions.add(Pair(DNF_POSITION, playerData.playerName))
-        }
+    for (playerId in this.raceData.playerPositions) {
+        val playerData = this.playerData.getOrInitPlayerData(playerId)
+        finalPositions.add(
+            if (playerData.lapsCompleted >= this.raceData.numLaps) 
+                Pair(playerData.nodePosition + 1u, playerData.playerName)
+                else Pair(DNF_POSITION, playerData.playerName)
+        )
         
         // clear player data
         playerData.resetData()
@@ -398,10 +461,12 @@ fun ServerLevel.endRound(keepPlayers: Boolean = false) {
     finalPositions.sortWith{p1, p2 -> p1.first.compareTo(p2.first)}
 
     for (player in this.playerData.activePlayers.mapNotNull(this.server.playerList::getPlayer)) {
-        player.onRaceFinished()
-        for (position in finalPositions) {
-            val posString = if (position.first != DNF_POSITION) "${position.first}".padStart(3) else "DNF"
-            player.sendSystemMessage(Component.literal("$posString: ${position.second}"))
+        player.onLeaveRace()
+        if (this.raceData.phase.isPractice == false) {
+            for (position in finalPositions) {
+                val posString = if (position.first != DNF_POSITION) "${position.first}".padStart(3) else "DNF"
+                player.sendSystemMessage(Component.literal("$posString: ${position.second}"))
+            }
         }
     }
 

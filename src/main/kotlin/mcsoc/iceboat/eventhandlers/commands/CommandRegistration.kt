@@ -111,6 +111,13 @@ fun registerCommands() {
                     )
                 )
             )
+            .then(Commands.literal("showStartPositions")
+                .then(MAP_NAME_ARGUMENT_NODE
+                    .then(PLAYERS_ARGUMENT_NODE
+                        .executes(CommandActions::showMapStartPositions)
+                    )
+                )
+            )
             .then(Commands.literal("clear")
                 .then(MAP_NAME_ARGUMENT_NODE
                     .executes(CommandActions::clearMap)
@@ -135,6 +142,7 @@ fun registerCommands() {
         .then(Commands.literal("game")
             .then(Commands.literal("start")
                 .then(MAP_NAME_ARGUMENT_NODE
+                    .executes(CommandActions::startPracticeGame)
                     .then(INT_ARGUMENT_NODE
                         .executes(CommandActions::startGame)
                     )

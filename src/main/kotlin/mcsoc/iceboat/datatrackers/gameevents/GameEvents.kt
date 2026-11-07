@@ -8,6 +8,7 @@ import mcsoc.iceboat.datatrackers.playerData
 import mcsoc.iceboat.utils.CODEC
 import mcsoc.iceboat.gameeffects.beginRace
 import mcsoc.iceboat.gameeffects.showNodeTo
+import mcsoc.iceboat.gameeffects.showPosTo
 import mcsoc.iceboat.utils.ticks
 import net.minecraft.core.Holder
 import net.minecraft.core.UUIDUtil
@@ -46,7 +47,7 @@ fun <T : GameEvent> KClass<T>.getAllSealedSubclasses(): List<KClass<out T>> {
  * Class to represent game events; actions that can be scheduled to trigger after some time (once `triggerTime` has
  * passed). These are queued up to the `GameEventTracker`.
  */
-sealed class GameEvent(protected val triggerTime: Duration, private val id: String): Comparable<GameEvent> {
+sealed class GameEvent(protected var triggerTime: Duration, private val id: String): Comparable<GameEvent> {
     companion object {
         val REGISTRY: Map<String, MapCodec<out GameEvent>> by lazy {
             GameEvent::class.getAllSealedSubclasses()
@@ -70,16 +71,19 @@ sealed class GameEvent(protected val triggerTime: Duration, private val id: Stri
     /**
      * Class to represent repeating game events, actions that repeat every `interval`, `count` amount of times.
      */
-    sealed class RecursiveGameEvent<T: GameEvent>(triggerTime: Duration, id: String, protected val count: Long, private val interval: Duration) : GameEvent(triggerTime, id) {
+    sealed class RecursiveGameEvent<T: GameEvent>(triggerTime: Duration, id: String, protected var count: Long, private val interval: Duration) : GameEvent(triggerTime, id) {
         protected abstract fun recurseTrigger(level: ServerLevel)
         protected abstract fun concludeTrigger(level: ServerLevel)
 
-        protected abstract fun createEvent(triggerTime: Duration, count: Long): RecursiveGameEvent<T>
+        // protected abstract fun createEvent(triggerTime: Duration, count: Long): RecursiveGameEvent<T>
         
         override fun trigger(level: ServerLevel) {
             if (count > 0) {
                 recurseTrigger(level)
-                level.eventsQueue.queueEvent(createEvent(triggerTime + interval, count - 1))
+                // level.eventsQueue.queueEvent(createEvent(triggerTime + interval, count - 1))
+                triggerTime += interval
+                count -= 1
+                level.eventsQueue.queueEvent(this)
             } else {
                 concludeTrigger(level)
             }
@@ -135,7 +139,7 @@ sealed class GameEvent(protected val triggerTime: Duration, private val id: Stri
             }
             level.beginRace()
         }
-        override fun createEvent(triggerTime: Duration, count: Long) = GameStartCounterEvent(triggerTime, count)
+        // override fun createEvent(triggerTime: Duration, count: Long) = GameStartCounterEvent(triggerTime, count)
     }
 
     class DisplayNodePositionEvent private constructor(triggerTime: Duration, count: Long,
@@ -162,6 +166,30 @@ sealed class GameEvent(protected val triggerTime: Duration, private val id: Stri
         
         override fun recurseTrigger(level: ServerLevel) = showNodeTo(level, target, startPos, between, endsSplit, lengthScaledRounded)
         override fun concludeTrigger(level: ServerLevel) = recurseTrigger(level)
-        override fun createEvent(triggerTime: Duration, count: Long) = DisplayNodePositionEvent(triggerTime, count, target, startPos, between, endsSplit, lengthScaledRounded)
+        // override fun createEvent(triggerTime: Duration, count: Long) = DisplayNodePositionEvent(triggerTime, count, target, startPos, between, endsSplit, lengthScaledRounded)
+    }
+
+    class DisplayPositionEvent private constructor(triggerTime: Duration, count: Long,
+        val target: UUID, val pos: Vec3
+    ) : RecursiveGameEvent<DisplayPositionEvent>(triggerTime, id, count, INTERVAL) {
+    constructor(triggerTime: Duration, startTime: Duration, target: UUID, position: Vec3,
+    _d: Unit = Unit) : this(
+            triggerTime, (startTime / INTERVAL).toLong(), target, position
+        )
+        companion object : GameEventCompanion<DisplayPositionEvent> {
+            val INTERVAL = 5.ticks
+            
+            override val id: String = "gameStart"
+            override val codec: MapCodec<DisplayPositionEvent> = RecordCodecBuilder.mapCodec{it.group(
+                Duration.CODEC.fieldOf("time").forGetter(DisplayPositionEvent::triggerTime),
+                Codec.LONG.fieldOf("period").forGetter(DisplayPositionEvent::count),
+                UUIDUtil.CODEC.fieldOf("target").forGetter(DisplayPositionEvent::target),
+                Vec3.CODEC.fieldOf("position").forGetter(DisplayPositionEvent::pos),
+            ).apply(it, ::DisplayPositionEvent)}
+        }
+        
+        override fun recurseTrigger(level: ServerLevel) = showPosTo(level, target, pos)
+        override fun concludeTrigger(level: ServerLevel) = recurseTrigger(level)
+        // override fun createEvent(triggerTime: Duration, count: Long) = DisplayPositionEvent(triggerTime, count, target, pos)
     }
 }

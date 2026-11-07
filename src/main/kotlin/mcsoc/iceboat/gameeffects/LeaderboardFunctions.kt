@@ -77,7 +77,11 @@ fun ServerLevel.addLapsIndicatorToSidebar() {
     val scoreboard = this.levelScoreboard
     scoreboard.tryAddObjective(SIDEBAR_TIME_ID, SIDEBAR_POSITIONS_DISPLAY, BlankFormat.INSTANCE)
     
-    val numberFormat = FixedFormat(Component.literal("${this.raceData.numLaps.toInt()}".padStart(2).padEnd(8))
+    IceboatPlugin.LOGGER.info("phase: {}, prac: {}", this.raceData.phase, this.raceData.phase.isPractice)
+    
+    val lapsString = if (this.raceData.phase.isPractice == true) "INFINITE"
+        else "${this.raceData.numLaps.toInt()}".padStart(2).padEnd(8)
+    val numberFormat = FixedFormat(Component.literal(lapsString)
         .withStyle(ChatFormatting.GRAY))
 
     scoreboard.setScore(SIDEBAR_TIME_ID, "LAPS:", HIGHEST_SCOREBOARD_VALUE, numberFormat)
@@ -119,6 +123,9 @@ fun ServerLevel.initProgressBarFor(playerId: UUID) {
 
 fun ServerLevel.initScoreboardFor(playerId: UUID) {
     this.levelScoreboard.addPlayerToTracking(playerId, SIDEBAR_TIME_ID, listOf(DisplaySlot.LIST, DisplaySlot.SIDEBAR))
+}
+fun ServerLevel.removeScoreboardFor(playerId: UUID) {
+    this.levelScoreboard.removePlayerFromTracking(playerId, SIDEBAR_TIME_ID)
 }
 
 // Refresh boss bar which indicates lap progress

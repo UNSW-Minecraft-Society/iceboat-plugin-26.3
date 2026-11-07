@@ -31,6 +31,7 @@ class GameDataTracker() : LevelTiedData(), GameDataHolder {
         get() = if (phase.isRunning) field else "" 
     override var phase: GamePhase = GamePhase.Inactive
     override var numLaps: UInt = 3u
+        get() = if (phase.isPractice == true) UInt.MAX_VALUE else field
     override val nodeProgress: MutableList<MutableMap<UUID, LapProgress>> = mutableListOf()
     override val playerToBoatMap: MutableMap<UUID, UUID> = mutableMapOf()
     override val vehicleToDisplayMap: MutableMap<UUID, Pair<Int, UUID>> = mutableMapOf()

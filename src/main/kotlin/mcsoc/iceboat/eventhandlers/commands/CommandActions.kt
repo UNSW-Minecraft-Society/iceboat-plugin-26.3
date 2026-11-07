@@ -11,10 +11,12 @@ import mcsoc.iceboat.datatrackers.mapData
 import mcsoc.iceboat.datatrackers.mapdata.NodeData
 import mcsoc.iceboat.datatrackers.playerData
 import mcsoc.iceboat.datatrackers.raceData
+import mcsoc.iceboat.gameeffects.addPlayerToRace
 import mcsoc.iceboat.gameeffects.endRound
+import mcsoc.iceboat.gameeffects.onLeaveRace
 import mcsoc.iceboat.gameeffects.showNodeBoundary
+import mcsoc.iceboat.gameeffects.showPosition
 import mcsoc.iceboat.gameeffects.startRound
-import mcsoc.iceboat.utils.ticks
 import net.minecraft.commands.CommandSourceStack
 import net.minecraft.commands.arguments.EntityArgument
 import net.minecraft.commands.arguments.UuidArgument
@@ -142,6 +144,20 @@ object CommandActions {
         }
         return 1
     }
+
+    fun showMapStartPositions(ctx: CommandContext<CommandSourceStack>): Int {
+        val source = ctx.source
+        val mapId = StringArgumentType.getString(ctx, MAP_NAME_ARGUMENT)
+        val targets = EntityArgument.getPlayers(ctx, PLAYERS_ARGUMENT)
+        source.level.mapData.getMapData(mapId)?.startPositions?.let{
+            for (startPosition in it) {
+                for (target in targets) {
+                    target.showPosition(startPosition, 1.seconds)
+                }
+            }
+        }
+        return 1
+    }
     
     fun clearMap(ctx: CommandContext<CommandSourceStack>): Int {
         val source = ctx.source
@@ -156,11 +172,11 @@ object CommandActions {
         return 1
     }
     
-    fun startGame(ctx: CommandContext<CommandSourceStack>): Int {
+    fun startGame(ctx: CommandContext<CommandSourceStack>, practice: Boolean = false): Int {
         val source = ctx.source
         val mapId = StringArgumentType.getString(ctx, MAP_NAME_ARGUMENT)
-        val numLaps = IntegerArgumentType.getInteger(ctx, INT_COUNT_ARGUMENT).toUInt()
-        return when (source.level.startRound(mapId, numLaps)) {
+        val numLaps = if (practice) 3u else IntegerArgumentType.getInteger(ctx, INT_COUNT_ARGUMENT).toUInt()
+        return when (source.level.startRound(mapId, numLaps, practice)) {
             0 -> {
                 source.sendSuccess({Component.literal("Started a new round on map '$mapId.'")}, true)
                 1
@@ -183,6 +199,7 @@ object CommandActions {
             }
         }
     }
+    fun startPracticeGame(ctx: CommandContext<CommandSourceStack>): Int = startGame(ctx, true)
     
     fun endGame(ctx: CommandContext<CommandSourceStack>): Int {
         val source = ctx.source
@@ -214,9 +231,9 @@ object CommandActions {
     fun addPlayersToGame(ctx: CommandContext<CommandSourceStack>): Int {
         val level = ctx.source.level
         for (player in EntityArgument.getPlayers(ctx, PLAYERS_ARGUMENT)) {
-            level.playerData.getOrInitPlayerData(player)
-            level.playerData.activePlayers.add(player.uuid)
+            level.addPlayerToRace(player)
             
+            // TODO change messages if race is running
             player.sendSystemMessage(Component.literal("You have been signed up for the next race!"))
             ctx.source.sendSuccess({Component.literal("Added ${player.displayName.string} to the next race.")}, true)
         }
@@ -227,6 +244,7 @@ object CommandActions {
     fun removePlayersFromGame(ctx: CommandContext<CommandSourceStack>): Int {        
         for (player in EntityArgument.getPlayers(ctx, PLAYERS_ARGUMENT)) {
             if (ctx.source.level.playerData.activePlayers.remove(player.uuid)) {
+                player.onLeaveRace()
                 player.sendSystemMessage(Component.literal("You are no longer signed up for the next race."))
                 ctx.source.sendSuccess({Component.literal("Removed ${player.displayName.string} from the next race.")}, true)
             }

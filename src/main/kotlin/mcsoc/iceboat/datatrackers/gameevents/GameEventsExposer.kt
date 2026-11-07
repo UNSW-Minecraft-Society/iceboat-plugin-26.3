@@ -14,6 +14,7 @@ interface GameEventsExposer {
     fun reset()
     
     fun queueGameStartCounter(countdownTime: Duration)
+    fun queueShowPosition(displayTime: Duration, target: UUID, pos: Vec3)
     fun queueShowNodePosition(displayTime: Duration, target: UUID, 
         startPos: Vec3, between: Vec3, 
         endsSplit: Boolean, lengthScaledRounded: Int
@@ -35,6 +36,10 @@ interface GameEventsHolder : GameEventsExposer {
     
     override fun queueGameStartCounter(countdownTime: Duration) {
         queueEvent(GameEvent.GameStartCounterEvent(level.gameClock.time, countdownTime))
+    }
+    
+    override fun queueShowPosition(displayTime: Duration, target: UUID, pos: Vec3) {
+        queueEvent(GameEvent.DisplayPositionEvent(level.gameClock.time, displayTime, target, pos))
     }
     
     override fun queueShowNodePosition(displayTime: Duration, target: UUID, 
