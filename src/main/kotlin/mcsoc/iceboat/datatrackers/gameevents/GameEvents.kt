@@ -80,7 +80,6 @@ sealed class GameEvent(protected var triggerTime: Duration, private val id: Stri
         override fun trigger(level: ServerLevel) {
             if (count > 0) {
                 recurseTrigger(level)
-                // level.eventsQueue.queueEvent(createEvent(triggerTime + interval, count - 1))
                 triggerTime += interval
                 count -= 1
                 level.eventsQueue.queueEvent(this)
@@ -139,7 +138,6 @@ sealed class GameEvent(protected var triggerTime: Duration, private val id: Stri
             }
             level.beginRace()
         }
-        // override fun createEvent(triggerTime: Duration, count: Long) = GameStartCounterEvent(triggerTime, count)
     }
 
     class DisplayNodePositionEvent private constructor(triggerTime: Duration, count: Long,
@@ -166,7 +164,6 @@ sealed class GameEvent(protected var triggerTime: Duration, private val id: Stri
         
         override fun recurseTrigger(level: ServerLevel) = showNodeTo(level, target, startPos, between, endsSplit, lengthScaledRounded)
         override fun concludeTrigger(level: ServerLevel) = recurseTrigger(level)
-        // override fun createEvent(triggerTime: Duration, count: Long) = DisplayNodePositionEvent(triggerTime, count, target, startPos, between, endsSplit, lengthScaledRounded)
     }
 
     class DisplayPositionEvent private constructor(triggerTime: Duration, count: Long,
