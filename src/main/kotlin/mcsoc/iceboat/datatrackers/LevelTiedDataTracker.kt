@@ -5,8 +5,8 @@ import com.mojang.serialization.Codec
 import com.mojang.serialization.MapCodec
 import com.mojang.serialization.codecs.RecordCodecBuilder
 import mcsoc.iceboat.IceboatPlugin
-import mcsoc.iceboat.datatrackers.gamedata.GameDataExposer
-import mcsoc.iceboat.datatrackers.gamedata.GameDataTracker
+import mcsoc.iceboat.datatrackers.gamedata.RoundDataExposer
+import mcsoc.iceboat.datatrackers.gamedata.RoundDataTracker
 import mcsoc.iceboat.datatrackers.mapdata.MapDataExposer
 import mcsoc.iceboat.datatrackers.mapdata.MapDataTracker
 import mcsoc.iceboat.datatrackers.playerdata.PlayerDataExposer
@@ -94,7 +94,7 @@ sealed class LevelDataType<T : LevelTiedData>(val id: String, val default: () ->
     object MapData : LevelDataType<MapDataTracker>("nodes", ::MapDataTracker, MapDataTracker.CODEC)
     object PlayerData : LevelDataType<PlayerDataTracker>("players", ::PlayerDataTracker, PlayerDataTracker.CODEC)
     object GameClock : LevelDataType<GameTimer>("clock", ::GameTimer, GameTimer.CODEC)
-    object RaceData : LevelDataType<GameDataTracker>("race", ::GameDataTracker, GameDataTracker.CODEC)
+    object RaceData : LevelDataType<RoundDataTracker>("race", ::RoundDataTracker, RoundDataTracker.CODEC)
     object EventsQueue : LevelDataType<GameEventsTracker>("events", ::GameEventsTracker, GameEventsTracker.CODEC)
     object LevelScores : LevelDataType<LevelScoreTracker>("scores", ::LevelScoreTracker, LevelScoreTracker.CODEC)
 }
@@ -103,7 +103,7 @@ sealed class LevelDataType<T : LevelTiedData>(val id: String, val default: () ->
 val ServerLevel.mapData: MapDataExposer get() = this.levelTiedData.getDataOfType(LevelDataType.MapData)
 val ServerLevel.playerData: PlayerDataExposer get() = this.levelTiedData.getDataOfType(LevelDataType.PlayerData)
 val ServerLevel.gameClock: TickExposer get() = this.levelTiedData.getDataOfType(LevelDataType.GameClock)
-val ServerLevel.raceData: GameDataExposer get() = this.levelTiedData.getDataOfType(LevelDataType.RaceData)
+val ServerLevel.raceData: RoundDataExposer get() = this.levelTiedData.getDataOfType(LevelDataType.RaceData)
 val ServerLevel.eventsQueue: GameEventsExposer get() = this.levelTiedData.getDataOfType(LevelDataType.EventsQueue).also{it.level = this}
 val ServerLevel.levelScoreboard: PlayerTiedScoreExposer get() = this.levelTiedData.getDataOfType(LevelDataType.LevelScores).also{it.level = this}
 val ServerLevel.levelBossBars: ClientBossBarExposer get() = this.levelTiedData.getDataOfType(LevelDataType.LevelScores).also{

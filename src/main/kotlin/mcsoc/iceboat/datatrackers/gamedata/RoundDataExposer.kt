@@ -51,15 +51,20 @@ enum class GamePhase(val isRunning: Boolean, val isActive: Boolean, val isPracti
 }
 
 
-interface GameDataExposer {
+interface RoundDataExposer {
     val phase: GamePhase
     val activeMapKey: String
-    fun setActiveMap(key: String)
-    fun startRace()
-    fun startPracticeRace()
-    fun setInactive()
     
-    var numLaps: UInt
+    val numLaps: UInt
+    val startTime: Duration
+    fun toRaceTime(currTime: Duration): Duration {
+        return currTime - startTime
+    }
+    
+    fun startRoundWith(key: String, numLaps: UInt)
+    fun beginRace(currTime: Duration)
+    fun beginPracticeRace(currTime: Duration)
+    fun setInactive()
     
     val nodeProgress: List<Map<UUID, LapProgress>>
     fun getNodeProgress(node: UUID, lap: Int): LapProgress? {
@@ -82,35 +87,43 @@ interface GameDataExposer {
     var isSillyMode: Boolean
 }
 
-internal interface GameDataHolder : GameDataExposer {
+internal interface GameDataHolder : RoundDataExposer {
     override var phase: GamePhase
+    
     override var activeMapKey: String
+    override var numLaps: UInt
+    override var startTime: Duration
     
     override val nodeProgress: MutableList<MutableMap<UUID, LapProgress>>
     override fun getNodeProgress(node: UUID, lap: Int): LapProgress = super.getNodeProgress(node, lap) ?: run {
         while (nodeProgress.size <= lap) nodeProgress.add(mutableMapOf())
         LapProgress().also{ nodeProgress[lap][node] = it }
     }    
-    
-    private fun setActiveMapInternal(key: String?) {
-        activeMapKey = key?.also{
-            phase = GamePhase.Countdown
-        } ?: run {
-            phase = GamePhase.Inactive
-            ""
-        }
+
+    override fun startRoundWith(key: String, numLaps: UInt) {
+        if (phase != GamePhase.Inactive) setInactive()
+        
+        this.activeMapKey = key
+        this.numLaps = numLaps
+        
+        // Await for beginRace to be called
+        this.phase = GamePhase.Countdown
+    }
+    override fun beginPracticeRace(currTime: Duration) {
+        this.startTime = currTime
+        phase = GamePhase.Practice
+    }
+    override fun beginRace(currTime: Duration) {
+        this.startTime = currTime
+        phase = GamePhase.Active
+    }
+    override fun setInactive() {
+        phase = GamePhase.Inactive
+        
         // clear old race data
         nodeProgress.clear()
         playerToBoatMap.clear()
     }
-    override fun setActiveMap(key: String) = setActiveMapInternal(key)
-    override fun startPracticeRace() {
-        phase = GamePhase.Practice
-    }
-    override fun startRace() {
-        phase = GamePhase.Active
-    }
-    override fun setInactive() = setActiveMapInternal(null)
     
     override fun trackPlayerPassed(node: UUID, lap: UInt, player: UUID, playerTime: Duration): Boolean {
         val lap = lap.toInt()

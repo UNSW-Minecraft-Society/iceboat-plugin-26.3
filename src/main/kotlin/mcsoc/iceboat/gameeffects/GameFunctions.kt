@@ -1,12 +1,13 @@
 package mcsoc.iceboat.gameeffects
 
 import mcsoc.iceboat.datatrackers.eventsQueue
+import mcsoc.iceboat.datatrackers.gameClock
 import mcsoc.iceboat.datatrackers.levelBossBars
-import mcsoc.iceboat.datatrackers.levelScoreboard
 import mcsoc.iceboat.datatrackers.mapData
 import mcsoc.iceboat.datatrackers.mapdata.NodeData
 import mcsoc.iceboat.datatrackers.playerData
 import mcsoc.iceboat.datatrackers.raceData
+import mcsoc.iceboat.utils.formatMinuteSecondMillis
 import net.minecraft.ChatFormatting
 import net.minecraft.core.particles.ParticleTypes
 import net.minecraft.network.chat.Component
@@ -139,9 +140,7 @@ fun ServerPlayer.showPosition(position: Vec3, duration: Duration? = null) {
 fun ServerPlayer.sendActionbarHUD(velocity: Double, position: Int, time: Duration) {
     val velocityString = velocity.toBigDecimal().setScale(3, RoundingMode.FLOOR).toString().substring(0 until 5)
     val posString = position.toString()
-    val timeString = time.toComponents{ minutes, seconds, nanos -> 
-        "$minutes".padStart(2, '0') + ":" + "$seconds".padStart(2, '0') + ":" + "$nanos".padStart(2, '0').substring(0 until 2)
-    }
+    val timeString = time.formatMinuteSecondMillis
     
     this.connection.send(ClientboundSetActionBarTextPacket(
         Component.empty()
@@ -247,9 +246,6 @@ fun ServerLevel.tickPlayerNodeTracking(playerId: UUID, finishedPlayers: MutableC
     // skip if player isn't part of the race or has finished
     val curr = playerData.currNode ?: return
     
-    // tick player time (even if offline)
-    playerData.timer.tick()
-    
     // skip if player is offline
     val player = level.server.playerList.getPlayer(playerId) ?: return
     
@@ -258,15 +254,15 @@ fun ServerLevel.tickPlayerNodeTracking(playerId: UUID, finishedPlayers: MutableC
     val nextNode = level.mapData.getNode(next) ?: throw StringIndexOutOfBoundsException("tick")
     
     oldPosMap[playerId]?.let{
+        val raceTime = this.raceData.toRaceTime(this.gameClock.time)
         if (nextNode.passedBy(it.last(), player.position())) {
-            player.trackTimeAtNode(playerData.lapsCompleted, next, playerData.timer.time)
+            player.trackTimeAtNode(next, raceTime)
             if (playerData.lapsCompleted >= level.raceData.numLaps) {
                 // trigger win
                 finishedPlayers.add(playerId)
                 playerData.currNode = null
             } else {
                 playerData.currNode = next
-                if (nextNode.endsSplit) playerData.timer.reset()
             }
         } else {
             // beacon beam at next checkpoint?
@@ -285,7 +281,7 @@ fun ServerLevel.tickPlayerNodeTracking(playerId: UUID, finishedPlayers: MutableC
         //  *72 to convert from m/t to km/h
         val velocity: Double = diffs.sumOf(Vec3::length) * 72.0 / it.size
         val position: Int = this.raceData.playerPositions.indexOf(playerId) + 1
-        val time = playerData.timer.time
+        val time = playerData.toSplitTime(raceTime)
         player.sendActionbarHUD(velocity, position, time)
         
     } ?: run { oldPosMap[playerId] = ArrayDeque(VELOCITY_AVERAGE_TICKS) }
@@ -319,10 +315,11 @@ fun ServerLevel.broadcastFinishedPlayers(finishedPlayers: MutableCollection<UUID
 
 
 // for setting up player
-private fun ServerLevel.setupPlayerForRace(player: ServerPlayer, startNodeData: NodeData, startPos: Vec3) {
+private fun ServerLevel.setupPlayerForRace(player: ServerPlayer, numLaps: UInt, numSplits: UInt, startNodeData: NodeData, startPos: Vec3) {
     val playerData = this.playerData.getOrInitPlayerData(player)
     // clear player data
     playerData.resetData()
+    playerData.initGameData(numLaps, numSplits)
 
     // spawn and setup vehicle
     // forceload vehicle chunk since players will be in spectator
@@ -335,8 +332,8 @@ private fun ServerLevel.setupPlayerForRace(player: ServerPlayer, startNodeData: 
 }
 
 // for start round
-fun ServerPlayer.onStartRound(level: ServerLevel, startNodeData: NodeData, startPos: Vec3) {
-    level.setupPlayerForRace(this, startNodeData, startPos)
+fun ServerPlayer.onStartRound(level: ServerLevel, numLaps: UInt, numSplits: UInt, startNodeData: NodeData, startPos: Vec3) {
+    level.setupPlayerForRace(this, numLaps, numSplits, startNodeData, startPos)
 
     // tp player above vehicle and set gamemode to spectator
     this.setGameMode(GameType.SPECTATOR)
@@ -378,7 +375,9 @@ fun ServerLevel.addPlayerToRace(player: ServerPlayer) {
 }
 // for joining mid race (lobby)
 fun ServerPlayer.onJoinRunningRace(level: ServerLevel, startNodeId: UUID, startNodeData: NodeData) {    
-    level.setupPlayerForRace(this, startNodeData, startNodeData.pos)
+    val numLaps = level.raceData.numLaps
+    val numSplits = level.mapData.getAllMapNodes(level.raceData.activeMapKey).count{it.second.endsSplit}.toUInt()
+    level.setupPlayerForRace(this, numLaps, numSplits, startNodeData, startNodeData.pos)
     this.onBeginRace(level, startNodeId)
 }
 
@@ -410,16 +409,14 @@ fun ServerLevel.startRound(mapId: String, numLaps: UInt = 3u, practice: Boolean 
         this.endRound(true)
     }
     
-    val playerData = this.playerData
-
     // if not enough start positions
     if (playerData.activePlayers.size > mapData.startPositions.size) return 3
-    this.raceData.setActiveMap(mapId)
-    this.raceData.numLaps = numLaps
+    this.raceData.startRoundWith(mapId, numLaps)
     
+    val numSplits = this.mapData.getAllMapNodes(mapId).count{it.second.endsSplit}.toUInt()
     val startPositions = mapData.startPositions.iterator()
     for (player in playerData.activePlayers.shuffled().mapNotNull(this.server.playerList::getPlayer)) {
-        player.onStartRound(this, firstNodeData, startPositions.next())
+        player.onStartRound(this, numLaps, numSplits, firstNodeData, startPositions.next())
     }
     
     // if lobby or practice, start immediately, otherwise trigger the countdown
@@ -433,8 +430,8 @@ fun ServerLevel.startRound(mapId: String, numLaps: UInt = 3u, practice: Boolean 
 fun ServerLevel.beginRace(practice: Boolean = false) {
     val mapData = this.mapData.getMapData(this.raceData.activeMapKey) ?: return
     
-    if (practice) this.raceData.startPracticeRace()
-        else this.raceData.startRace()
+    if (practice) this.raceData.beginPracticeRace(this.gameClock.time)
+        else this.raceData.beginRace(this.gameClock.time)
         
     this.updateTimeDisplay()
     this.addLapsIndicatorToSidebar()
@@ -463,9 +460,9 @@ fun ServerLevel.endRound(keepPlayers: Boolean = false) {
     for (player in this.playerData.activePlayers.mapNotNull(this.server.playerList::getPlayer)) {
         player.onLeaveRace()
         if (this.raceData.phase.isPractice == false) {
-            for (position in finalPositions) {
-                val posString = if (position.first != DNF_POSITION) "${position.first}".padStart(3) else "DNF"
-                player.sendSystemMessage(Component.literal("$posString: ${position.second}"))
+            for ((position, name) in finalPositions) {
+                val posString = if (position != DNF_POSITION) "$position".padStart(3) else "DNF"
+                player.sendSystemMessage(Component.literal("$posString: $name"))
             }
         }
     }
