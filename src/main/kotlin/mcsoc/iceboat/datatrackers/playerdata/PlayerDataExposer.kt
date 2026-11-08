@@ -72,7 +72,7 @@ class PlayerData(
     }
     
     fun initGameData(numLaps: UInt, numSplits: UInt) {
-        while (splitTimes.size <= numLaps.toInt()) splitTimes.add(MutableList(numSplits.toInt()){Duration.ZERO})
+        while (splitTimes.size <= numLaps.toInt()) splitTimes.add(MutableList(numSplits.toInt() + 1){Duration.ZERO})
     }
     
     override fun toString(): String = 
