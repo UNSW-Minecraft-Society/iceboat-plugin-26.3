@@ -106,6 +106,7 @@ internal interface PlayerDataHolder : PlayerDataExposer {
             // if first map node
             if (isFirstNode) {
                 it.lapsCompleted++
+                it.currentSplit = 0u
                 it.nodesThisLapPassed = 0u
             } else if (endsSplit) it.currentSplit++
         } ?: run { IceboatPlugin.LOGGER.error("trackPlayerTimeAtNode: ", StringIndexOutOfBoundsException()) }
