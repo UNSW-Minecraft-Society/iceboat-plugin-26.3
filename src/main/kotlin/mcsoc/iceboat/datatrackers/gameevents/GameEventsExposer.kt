@@ -24,8 +24,9 @@ interface GameEventsExposer {
 }
 
 interface GameEventsHolder : GameEventsExposer {
-    val level: ServerLevel
     val eventQueue: Queue<GameEvent>
+    fun getCurrTime(): Duration
+    fun triggerGameEvent(event: GameEvent)
     
     override fun queueEvent(event: GameEvent) {
         eventQueue.add(event)
@@ -35,23 +36,23 @@ interface GameEventsHolder : GameEventsExposer {
     }
     
     override fun queueGameStartCounter(countdownTime: Duration) {
-        queueEvent(GameEvent.GameStartCounterEvent(level.gameClock.time, countdownTime))
+        queueEvent(GameEvent.GameStartCounterEvent(getCurrTime(), countdownTime))
     }
     
     override fun queueShowPosition(displayTime: Duration, target: UUID, pos: Vec3) {
-        queueEvent(GameEvent.DisplayPositionEvent(level.gameClock.time, displayTime, target, pos))
+        queueEvent(GameEvent.DisplayPositionEvent(getCurrTime(), displayTime, target, pos))
     }
     
     override fun queueShowNodePosition(displayTime: Duration, target: UUID, 
         startPos: Vec3, between: Vec3, 
         endsSplit: Boolean, lengthScaledRounded: Int
     ) {
-        queueEvent(GameEvent.DisplayNodePositionEvent(level.gameClock.time, displayTime, target, startPos, between, endsSplit, lengthScaledRounded))
+        queueEvent(GameEvent.DisplayNodePositionEvent(getCurrTime(), displayTime, target, startPos, between, endsSplit, lengthScaledRounded))
     }
     
     private fun dequeueEventsToTrigger(): Iterable<GameEvent> {
         val eventsToTrigger: MutableCollection<GameEvent> = mutableSetOf()
-        while (eventQueue.isNotEmpty() && eventQueue.peek().hasExpired(level.gameClock.time))
+        while (eventQueue.isNotEmpty() && eventQueue.peek().hasExpired(getCurrTime()))
             eventsToTrigger.add(eventQueue.poll() ?: break)
         return eventsToTrigger
     }
@@ -61,6 +62,6 @@ interface GameEventsHolder : GameEventsExposer {
     }
     
     override fun tick() {
-        for (event in dequeueEventsToTrigger()) event.trigger(level)
+        for (event in dequeueEventsToTrigger()) triggerGameEvent(event)
     }
 }

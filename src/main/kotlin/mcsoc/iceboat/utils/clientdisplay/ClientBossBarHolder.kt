@@ -1,21 +1,21 @@
 package mcsoc.iceboat.utils.clientdisplay
 
 import mcsoc.iceboat.IceboatPlugin
-import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents
 import net.minecraft.network.chat.Component
-import net.minecraft.network.protocol.game.ClientboundBossEventPacket
 import net.minecraft.resources.Identifier
 import net.minecraft.server.bossevents.CustomBossEvent
 import net.minecraft.server.level.ServerBossEvent
-import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.BossEvent
 import java.util.UUID
 
 
 interface ClientBossBarExposer {
-    val level: ServerLevel
     val bossEventMap: Map<UUID, CustomBossEvent>
+    
+    // get Player from UUID.
+    // Can be implemented w/ a saved ServerLevel instance.
+    fun getServerPlayer(playerId: UUID): ServerPlayer?
     
     // Constructs and saves a new boss bar.
     // Returns barId if supplied, otherwise generates a barId and returns that
@@ -73,7 +73,7 @@ interface ClientBossBarExposer {
     }
     // Helper function to locate player from player UUID 
     fun addPlayerTo(barId: UUID, playerId: UUID) {
-        val player = level.server.playerList.getPlayer(playerId) ?: return
+        val player = getServerPlayer(playerId) ?: return
         addPlayerTo(barId, player)
     }
     
@@ -88,7 +88,7 @@ interface ClientBossBarExposer {
     }
     // Helper function to locate player from player UUID
     fun removePlayerFrom(barId: UUID, playerId: UUID) {
-        val player = level.server.playerList.getPlayer(playerId) ?: return
+        val player = getServerPlayer(playerId) ?: return
         removePlayerFrom(barId, player)
     }
     

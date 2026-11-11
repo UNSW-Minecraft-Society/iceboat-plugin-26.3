@@ -15,6 +15,7 @@ import net.minecraft.network.chat.numbers.NumberFormatTypes
 import net.minecraft.resources.Identifier
 import net.minecraft.server.bossevents.CustomBossEvent
 import net.minecraft.server.level.ServerLevel
+import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.scores.Objective
 import net.minecraft.world.scores.PlayerScoreEntry
 import net.minecraft.world.scores.ScoreHolder
@@ -35,7 +36,13 @@ private data class BossBarRecord(val bossBar: CustomBossEvent.Packed, val id: Id
 }
 
 class LevelScoreTracker() : LevelTiedData(), PlayerTiedScoreHolder, ClientBossBarHolder {
-    override lateinit var level: ServerLevel
+    override fun setTiedLevel(level: ServerLevel) {
+        super.setTiedLevel(level)
+        this.scoreboard.level = level
+    }
+
+    override fun getServerPlayer(playerId: UUID): ServerPlayer? = this.level.server.playerList.getPlayer(playerId)
+    
     override fun getType(): LevelDataType<*> = LevelDataType.LevelScores
     companion object {
         val CODEC: MapCodec<LevelScoreTracker> = RecordCodecBuilder.mapCodec{it.group(
