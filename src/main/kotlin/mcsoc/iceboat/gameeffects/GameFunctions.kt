@@ -317,8 +317,8 @@ fun ServerLevel.broadcastFinishedPlayers(finishedPlayers: MutableCollection<UUID
 // for setting up player
 private fun ServerLevel.setupPlayerForRace(player: ServerPlayer, numLaps: UInt, numSplits: UInt, startNodeData: NodeData, startPos: Vec3) {
     val playerData = this.playerData.getOrInitPlayerData(player)
-    // clear player data
-    playerData.resetData()
+    
+    // reset player data
     playerData.initGameData(numLaps, numSplits)
 
     // spawn and setup vehicle
@@ -364,6 +364,13 @@ fun ServerPlayer.onBeginRace(level: ServerLevel, startNodeId: UUID) {
     level.initProgressBarFor(this.uuid)
 }
 
+// for joining mid race (lobby)
+fun ServerPlayer.onJoinRunningRace(level: ServerLevel, startNodeId: UUID, startNodeData: NodeData) {    
+    val numLaps = level.raceData.numLaps
+    val numSplits = level.mapData.getAllMapNodes(level.raceData.activeMapKey).count{it.second.endsSplit}.toUInt()
+    level.setupPlayerForRace(this, numLaps, numSplits, startNodeData, startNodeData.pos)
+    this.onBeginRace(level, startNodeId)
+}
 fun ServerLevel.addPlayerToRace(player: ServerPlayer) {
     level.playerData.activePlayers.add(player.uuid)
     
@@ -373,13 +380,7 @@ fun ServerLevel.addPlayerToRace(player: ServerPlayer) {
         player.onJoinRunningRace(this, startNodeId, this.mapData.getNode(startNodeId)!!)
     }
 }
-// for joining mid race (lobby)
-fun ServerPlayer.onJoinRunningRace(level: ServerLevel, startNodeId: UUID, startNodeData: NodeData) {    
-    val numLaps = level.raceData.numLaps
-    val numSplits = level.mapData.getAllMapNodes(level.raceData.activeMapKey).count{it.second.endsSplit}.toUInt()
-    level.setupPlayerForRace(this, numLaps, numSplits, startNodeData, startNodeData.pos)
-    this.onBeginRace(level, startNodeId)
-}
+
 
 
 fun ServerPlayer.onLeaveRace() {

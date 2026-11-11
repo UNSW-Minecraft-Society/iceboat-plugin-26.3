@@ -72,6 +72,7 @@ class PlayerData(
     }
     
     fun initGameData(numLaps: UInt, numSplits: UInt) {
+        resetData()
         while (splitTimes.size <= numLaps.toInt()) splitTimes.add(MutableList(numSplits.toInt() + 1){Duration.ZERO})
     }
     

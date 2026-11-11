@@ -36,7 +36,7 @@ class RoundDataTracker() : LevelTiedData(), GameDataHolder {
     override var phase: GamePhase = GamePhase.Inactive
     override var startTime: Duration = Duration.ZERO
     override var numLaps: UInt = 3u
-        get() = if (phase.isPractice == true) UInt.MAX_VALUE else field
+        get() = if (phase.isPractice == true) 100u else field
     override val nodeProgress: MutableList<MutableMap<UUID, LapProgress>> = mutableListOf()
     override val playerToBoatMap: MutableMap<UUID, UUID> = mutableMapOf()
     override val vehicleToDisplayMap: MutableMap<UUID, Pair<Int, UUID>> = mutableMapOf()
