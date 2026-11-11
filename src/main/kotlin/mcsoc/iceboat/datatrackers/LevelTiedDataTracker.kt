@@ -105,8 +105,9 @@ val ServerLevel.playerData: PlayerDataExposer get() = this.levelTiedData.getData
 val ServerLevel.gameClock: TickExposer get() = this.levelTiedData.getDataOfType(LevelDataType.GameClock)
 val ServerLevel.raceData: RoundDataExposer get() = this.levelTiedData.getDataOfType(LevelDataType.RaceData)
 val ServerLevel.eventsQueue: GameEventsExposer get() = this.levelTiedData.getDataOfType(LevelDataType.EventsQueue).also{it.level = this}
-val ServerLevel.levelScoreboard: PlayerTiedScoreExposer get() = this.levelTiedData.getDataOfType(LevelDataType.LevelScores).also{it.level = this}
-val ServerLevel.levelBossBars: ClientBossBarExposer get() = this.levelTiedData.getDataOfType(LevelDataType.LevelScores).also{
+private val ServerLevel.levelScoreDisplays get() = this.levelTiedData.getDataOfType(LevelDataType.LevelScores).also{
     it.level = this
     it.scoreboard.level = this
 }
+val ServerLevel.levelScoreboard: PlayerTiedScoreExposer get() = this.levelScoreDisplays
+val ServerLevel.levelBossBars: ClientBossBarExposer get() = this.levelScoreDisplays
